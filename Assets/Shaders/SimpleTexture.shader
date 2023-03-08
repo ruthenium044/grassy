@@ -1,54 +1,58 @@
-// This shader fills the mesh shape with a color predefined in the code.
-Shader "Example/UnlitTex"
-{
-    Properties
-    { 
-        [MainTexture] _BaseMap("Base Map", 2D) = "white"
+Shader "Custom/SimpleUnlit" {
+    Properties {
+        _MainTex ("Texture", 2D) = "white" {}
     }
-
-    SubShader
-    {
+    SubShader{
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
 
-        Pass
-        {
+        Pass {
             HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
+            #pragma prefer_hlslcc gles
+            #pragma exclude_renderers d3d11_9x
+            #pragma target 5.0
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #pragma vertex Vertex
+            #pragma fragment Fragment
 
-            struct Attributes
-            {
-                float2 uv           : TEXCOORD0;
-                float4 positionOS   : POSITION;
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            
+            struct DrawVertex {
+                float3 positionWS;
+                float2 uv;
             };
 
-            struct Varyings
-            {
-                float2 uv           : TEXCOORD0;
-                float4 positionHCS  : SV_POSITION;
+            struct DrawTriangle {
+                float3 normalWS;
+                DrawVertex vertices[3];
+            };
+
+            StructuredBuffer<DrawTriangle> _DrawTriangles;
+            
+            struct VertexOutput {
+                float3 positionWS   : TEXCOORD0;
+                float3 normalWS     : TEXCOORD1;
+                float2 uv           : TEXCOORD2;
+                float4 positionCS   : SV_POSITION;
             };
             
-            TEXTURE2D(_BaseMap);
-            SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex); float4 _MainTex_ST;
             
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseMap_ST;
-            CBUFFER_END
-
-            Varyings vert(Attributes IN)
-            {
-                Varyings OUT;
-                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-                OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
-                return OUT;
+            VertexOutput Vertex(uint vertexID: SV_VertexID) {
+                VertexOutput output = (VertexOutput)0;
+                 DrawTriangle tri = _DrawTriangles[vertexID / 3];
+                DrawVertex input = tri.vertices[vertexID % 3];
+            
+                output.positionWS = input.positionWS;
+                output.normalWS = tri.normalWS;
+                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+                
+                output.positionCS = TransformWorldToHClip(input.positionWS);
+                return output;
             }
-
-            half4 frag(Varyings IN) : SV_Target
-            {
-                half4 customColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
-                return customColor;
+ 
+            float4 Fragment(VertexOutput input) : SV_Target {
+                float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                return albedo;
             }
             ENDHLSL
         }

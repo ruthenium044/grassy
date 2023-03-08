@@ -1,18 +1,97 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// this lets spit out data
-RWTexture2D<float4> Result;
+struct SourceVertex {
+    float3 positionOS;
+    float2 uv;
+};
 
-//this lets push in data
-float Resolution;
+struct DrawVertex {
+    float3 positionWS;
+    float2 uv;
+};
 
-[numthreads(8,8,1)]
+struct DrawTriangle {
+    float3 normalWS;
+    DrawVertex vertices[3];
+};
+
+// Compute buffers
+StructuredBuffer<SourceVertex> _SourceVertices;
+StructuredBuffer<int> _SourceTriangles;
+//Output!
+AppendStructuredBuffer<DrawTriangle> _DrawTriangles;
+
+struct IndirectArgs {
+    uint numVerticesPerInstance;
+    uint numInstances;
+    uint startVertexIndex;
+    uint startInstanceIndex;
+};
+RWStructuredBuffer<IndirectArgs> _IndirectArgsBuffer;
+
+int _NumSourceTriangles;
+float _PyramidHeight;
+float4x4 _LocalToWorld;
+
+DrawVertex TransformToWorldSpace(SourceVertex v) {
+    DrawVertex o;
+    o.positionWS = mul(_LocalToWorld, float4(v.positionOS, 1)).xyz;
+    o.uv = v.uv;
+    return o;
+}
+
+float3 GetNormalFromTriangle(float3 a, float3 b, float3 c) {
+    return normalize(cross(b - a, c - a));
+}
+
+float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
+    return (a + b + c) / 3.0;
+}
+float2 GetTriangleCenter(float2 a, float2 b, float2 c) {
+    return (a + b + c) / 3.0;
+}
+
+void SetupAndOutputTriangle(DrawVertex a, DrawVertex b, DrawVertex c) {
+    float3 normalWS = GetNormalFromTriangle(a.positionWS, b.positionWS, c.positionWS);
+
+    DrawTriangle tri;
+    tri.normalWS = normalWS;
+    tri.vertices[0] = a;
+    tri.vertices[1] = b;
+    tri.vertices[2] = c;
+
+    _DrawTriangles.Append(tri);
+}
+
+[numthreads(128,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    float x = id.x / Resolution;
-    float y = id.y / Resolution;
+    if ((int)id.x >= _NumSourceTriangles) {
+        return;
+    }
 
-    Result[id.xy] = float4(0, y, 0.0, 0.0);
+    // Get the vertices which make up this triangle
+    // The triangle array contains indices to the vertex array
+    // Three values in the triangle array describe one triangle in the source mesh
+    int triStart = id.x * 3;
+    DrawVertex inputs[3];
+    inputs[0] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart]]);
+    inputs[1] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 1]]);
+    inputs[2] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 2]]);
+
+    DrawVertex center;
+    // We need the triangle's normal to extrude the center point
+    float3 triNormal = GetNormalFromTriangle(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS);
+    // Find the center position and extrude by _PyramidHeight along the normal
+    center.positionWS = GetTriangleCenter(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS) + triNormal * _PyramidHeight;
+    // Average the UVs as well
+    center.uv = GetTriangleCenter(inputs[0].uv, inputs[1].uv, inputs[2].uv);
+
+    SetupAndOutputTriangle(inputs[0], inputs[1], center);
+    SetupAndOutputTriangle(inputs[1], inputs[2], center);
+    SetupAndOutputTriangle(inputs[2], inputs[0], center);
 }
+
+
+
