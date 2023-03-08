@@ -4,6 +4,8 @@ Shader "Custom/SimpleUnlit" {
     }
     SubShader{
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
+        
+        Cull Off
 
         Pass {
             HLSLPROGRAM

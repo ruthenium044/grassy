@@ -51,6 +51,7 @@ public class CompteShaderTest : MonoBehaviour
         for(int i = 0; i < vertices.Length; i++) {
             vertices[i] = new SourceVertex() {
                 position = positions[i],
+                //normal = normals[i]
                 uv = uvs[i],
             };
         }

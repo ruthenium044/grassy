@@ -1,11 +1,15 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+//Input
 struct SourceVertex {
     float3 positionOS;
     float2 uv;
 };
+StructuredBuffer<SourceVertex> _SourceVertices;
+StructuredBuffer<int> _SourceTriangles;
 
+//Output
 struct DrawVertex {
     float3 positionWS;
     float2 uv;
@@ -15,13 +19,9 @@ struct DrawTriangle {
     float3 normalWS;
     DrawVertex vertices[3];
 };
-
-// Compute buffers
-StructuredBuffer<SourceVertex> _SourceVertices;
-StructuredBuffer<int> _SourceTriangles;
-//Output!
 AppendStructuredBuffer<DrawTriangle> _DrawTriangles;
 
+//args
 struct IndirectArgs {
     uint numVerticesPerInstance;
     uint numInstances;
@@ -64,6 +64,29 @@ void SetupAndOutputTriangle(DrawVertex a, DrawVertex b, DrawVertex c) {
     _DrawTriangles.Append(tri);
 }
 
+DrawVertex MakeDrawVertex(SourceVertex vert) {
+    DrawVertex output;
+    output.positionWS = mul(_LocalToWorld, float4(vert.positionOS, 1)).xyz;
+    output.uv = vert.uv;
+    return output;
+}
+
+DrawVertex GrassVertex(float3 positionOS, float width, float height, float2 uv)
+{
+    DrawVertex output = (DrawVertex)0;
+    float3 newPosOS = positionOS + float3(width, height, 0);
+    output.positionWS = mul(_LocalToWorld, float4(newPosOS, 1)).xyz;
+    output.uv = uv;
+    return output;
+}
+
+DrawVertex ExtrudeVertex(DrawVertex vert, float3 normal, float height) {
+    DrawVertex output;
+    output.positionWS = vert.positionWS + normal * height;
+    output.uv = vert.uv;
+    return output;
+}
+
 [numthreads(128,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -76,21 +99,18 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     // Three values in the triangle array describe one triangle in the source mesh
     int triStart = id.x * 3;
     DrawVertex inputs[3];
-    inputs[0] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart]]);
-    inputs[1] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 1]]);
-    inputs[2] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 2]]);
-
-    DrawVertex center;
-    // We need the triangle's normal to extrude the center point
+    inputs[0] = MakeDrawVertex(_SourceVertices[_SourceTriangles[triStart]]);
+    inputs[1] = MakeDrawVertex(_SourceVertices[_SourceTriangles[triStart + 1]]);
+    inputs[2] = MakeDrawVertex(_SourceVertices[_SourceTriangles[triStart + 2]]);
     float3 triNormal = GetNormalFromTriangle(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS);
-    // Find the center position and extrude by _PyramidHeight along the normal
-    center.positionWS = GetTriangleCenter(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS) + triNormal * _PyramidHeight;
-    // Average the UVs as well
-    center.uv = GetTriangleCenter(inputs[0].uv, inputs[1].uv, inputs[2].uv);
+    
+    DrawTriangle tri = (DrawTriangle)0;
+    tri.normalWS = triNormal;
+     for (int i = 0; i < 3; i++) {
+         tri.vertices[i] = ExtrudeVertex(inputs[i], triNormal, _PyramidHeight);
+     }
 
-    SetupAndOutputTriangle(inputs[0], inputs[1], center);
-    SetupAndOutputTriangle(inputs[1], inputs[2], center);
-    SetupAndOutputTriangle(inputs[2], inputs[0], center);
+    _DrawTriangles.Append(tri);
 }
 
 
