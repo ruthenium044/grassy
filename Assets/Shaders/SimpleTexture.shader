@@ -1,6 +1,7 @@
 Shader "Custom/SimpleUnlit" {
     Properties {
         _MainTex ("Texture", 2D) = "white" {}
+        _BaseColor("Base Color", Color) = (1, 1, 1, 1)
     }
     SubShader{
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
@@ -39,6 +40,10 @@ Shader "Custom/SimpleUnlit" {
             
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex); float4 _MainTex_ST;
             
+            CBUFFER_START(UnityPerMaterial)
+                half4 _BaseColor;            
+            CBUFFER_END
+            
             VertexOutput Vertex(uint vertexID: SV_VertexID) {
                 VertexOutput output = (VertexOutput)0;
                  DrawTriangle tri = _DrawTriangles[vertexID / 3];
@@ -54,7 +59,7 @@ Shader "Custom/SimpleUnlit" {
  
             float4 Fragment(VertexOutput input) : SV_Target {
                 float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-                return albedo;
+                return albedo * _BaseColor;
             }
             ENDHLSL
         }

@@ -5,14 +5,13 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.VisualScripting;
 using UnityEngine;
 using Unity.Mathematics;
+using UnityEngine.Serialization;
 
 public class CompteShaderTest : MonoBehaviour
 {
-    [SerializeField] private Mesh sourceMesh = default;
-    [SerializeField] private ComputeShader pyramidComputeShader = default;
-    [SerializeField] private ComputeShader triToVertComputeShader = default;
+    [SerializeField] private ComputeShader grassComputeShader = default;
     [SerializeField] private Material material = default;
-    [SerializeField] private float pyramidHeight = 1;
+    [SerializeField] private float grassHeight = 1;
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct SourceVertex {
@@ -20,14 +19,14 @@ public class CompteShaderTest : MonoBehaviour
         public Vector2 uv;
     }
     
+    private Mesh sourceMesh;
     private bool initialized;
     private ComputeBuffer sourceVertBuffer;
     private ComputeBuffer sourceTriBuffer;
     private ComputeBuffer drawBuffer;
     private ComputeBuffer argsBuffer;
 
-    private int idPyramidKernel;
-    private int idTriToVertKernel;
+    private int idKarnel;
     private int dispatchSize;
 
     private Bounds localBounds;
@@ -43,6 +42,7 @@ public class CompteShaderTest : MonoBehaviour
         }
         initialized = true;
 
+        sourceMesh = GetComponent<MeshFilter>().sharedMesh;
         Vector3[] positions = sourceMesh.vertices;
         Vector2[] uvs = sourceMesh.uv;
         int[] tris = sourceMesh.triangles;
@@ -68,24 +68,23 @@ public class CompteShaderTest : MonoBehaviour
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
 
-        idPyramidKernel = pyramidComputeShader.FindKernel("CSMain");
-        pyramidComputeShader.SetBuffer(idPyramidKernel, "_SourceVertices", sourceVertBuffer);
-        pyramidComputeShader.SetBuffer(idPyramidKernel, "_SourceTriangles", sourceTriBuffer);
-        pyramidComputeShader.SetBuffer(idPyramidKernel, "_DrawTriangles", drawBuffer);
-        pyramidComputeShader.SetInt("_NumSourceTriangles", numTriangles);
-
-        idTriToVertKernel = triToVertComputeShader.FindKernel("CSMain");
-        triToVertComputeShader.SetBuffer(idTriToVertKernel, "_IndirectArgsBuffer", argsBuffer);
-
+        idKarnel = grassComputeShader.FindKernel("CSMain");
+        grassComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
+        grassComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
+        grassComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
+        grassComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
+        
+        grassComputeShader.SetInt("_NumSourceTriangles", numTriangles);
+        
         material.SetBuffer("_DrawTriangles", drawBuffer);
 
         // Calculate the number of threads to use. Get the thread size from the kernel
         // Then, divide the number of triangles by that size
-        pyramidComputeShader.GetKernelThreadGroupSizes(idPyramidKernel, out uint threadGroupSize, out _, out _);
+        grassComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
         
         localBounds = sourceMesh.bounds;
-        localBounds.Expand(pyramidHeight);
+        localBounds.Expand(grassHeight);
     }
 
     private void OnDisable() {
@@ -103,20 +102,15 @@ public class CompteShaderTest : MonoBehaviour
         
         Bounds bounds = TransformBounds(localBounds);
 
-        pyramidComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-        pyramidComputeShader.SetFloat("_PyramidHeight", pyramidHeight);
-
-        //todo make the compute one shader instead of two somehow
-        pyramidComputeShader.Dispatch(idPyramidKernel, dispatchSize, 1, 1);
-
+        grassComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+        grassComputeShader.SetFloat("_Height", grassHeight);
+        
         // Copy the count (stack size) of the draw buffer to the args buffer, at byte position zero
         // This sets the vertex count for our draw procediral indirect call
         ComputeBuffer.CopyCount(drawBuffer, argsBuffer, 0);
 
-        // This the compute shader outputs triangles, but the graphics shader needs the number of vertices,
-        // we need to multiply the vertex count by three. We'll do this on the GPU with a compute shader 
-        // so we don't have to transfer data back to the CPU
-        triToVertComputeShader.Dispatch(idTriToVertKernel, 1, 1, 1);
+        //todo make the compute one shader instead of two somehow
+        grassComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
         
         Graphics.DrawProceduralIndirect(material, bounds, MeshTopology.Triangles, argsBuffer);
     }
