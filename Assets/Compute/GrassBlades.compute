@@ -34,6 +34,8 @@ RWStructuredBuffer<IndirectArgs> _IndirectArgsBuffer;
 float4x4 _LocalToWorld;
 
 int _NumSourceTriangles;
+int _SegmentsPerBlade;
+
 float _GrassHeight;
 float _GrassWidth;
 
@@ -42,11 +44,8 @@ half _BladeRadius;
 float _BladeForward;
 float _BladeCurve;
 
-// These values are bounded by limits in C# scripts,
-// because in the script we need to specify the buffer size
-#define GRASS_BLADES 4  // blade per vertex
-#define GRASS_SEGMENTS 5  // segments per blade
-#define GRASS_NUM_VERTICES_PER_BLADE (GRASS_SEGMENTS * 2 )
+#define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
+#define GRASS_VERTICES_PER_BLADE (MAX_GRASS_SEGMENTS * 2 + 1)
 
 DrawVertex TransformToWorldSpace(SourceVertex v) {
     DrawVertex o;
@@ -55,19 +54,27 @@ DrawVertex TransformToWorldSpace(SourceVertex v) {
     return o;
 }
 
-// Generate each grass vertex for output triangles
-DrawVertex GetGrassVertex(float3 positionOS, float width, float height, float2 uv)
-{
-    DrawVertex output = (DrawVertex)0;
-    float3 newPosOS = positionOS + float3(width, height, 0) ;
+DrawVertex GetGrassVertex(float3 positionOS, float width, float height, float2 uv) {
+    DrawVertex output;
+    const float3 offset = float3(width * (uv.x - 0.5), height * uv.y, 0);
+    float3 newPosOS = positionOS + offset;
+    
     output.positionWS = mul(_LocalToWorld, float4(newPosOS, 1)).xyz;
     output.uv = uv;
     return output;
 }
 
+void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, float3 faceNormal) {
+    DrawTriangle tri = (DrawTriangle)0;
+    tri.normalOS = faceNormal;
+    tri.vertices[0] = drawVertices[k];
+    tri.vertices[1] = drawVertices[k + 1];
+    tri.vertices[2] = drawVertices[k + 2];
+    _DrawTriangles.Append(tri);
+}
+
 [numthreads(128,1,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
-{
+void CSMain (uint3 id : SV_DispatchThreadID) {
     if ((int)id.x >= _NumSourceTriangles) {
         return;
     }
@@ -75,45 +82,35 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     float3 perpendicularAngle = float3(0, 0, 1);
     float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
-
-    int numBladesPerVertex = GRASS_BLADES;
-    int numSegmentsPerBlade = GRASS_SEGMENTS;
-    // total segment number - top segment multiplied by 2 (triangles per segment) and add top segment which is 1 tri
-    int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 ;
-
-    DrawVertex drawVertices[GRASS_NUM_VERTICES_PER_BLADE];
- 
-    for (int j = 0; j < numBladesPerVertex; ++j)
-    {
-        for (int i = 0; i < numSegmentsPerBlade; ++i)
-        {
-            float t = i / (float) numSegmentsPerBlade;
-            float segmentHeight = _GrassHeight * t;
-            float segmentWidth = _GrassWidth;// * (1 - t);
-
-            float3 newPos = float3(sv.positionOS.x, sv.positionOS.y, sv.positionOS.z);
-            drawVertices[i * 2] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight, float2(0, t));
-            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, -segmentWidth * 0.5, segmentHeight,float2(1, t));
-        }
+    
+    int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
         
-        // Append Top Vertex
-        //float3 topPosOS = float3(sv.positionOS.x, sv.positionOS.y, sv.positionOS.z);
-        //drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(topPosOS, 0, _GrassHeight, float2(0.5, 1));
-
-        for (int k = 0; k < numTrianglesPerBlade; ++k)
-        {
-            DrawTriangle tri = (DrawTriangle)0;
-            tri.normalOS = faceNormal;
-            tri.vertices[0] = drawVertices[k];
-            tri.vertices[1] = drawVertices[k + 1];
-            tri.vertices[2] = drawVertices[k + 2];
-            _DrawTriangles.Append(tri);
-        }
+    float segmentHeight = _GrassHeight;
+    float segmentWidth = _GrassWidth;
+    
+    DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
+    float3 newPos = float3(sv.positionOS.x, sv.positionOS.y, sv.positionOS.z);
+    
+    //for (int j = 0; j < numBladesPerVertex; ++j)
+    //{
+    for (int i = 0; i < numSegmentsPerBlade; ++i) {
+        float v = i / (float)numSegmentsPerBlade;
+        float u = 0.5f - (1 - v) * 0.5f;
+        
+        drawVertices[i * 2] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight, float2(u, v));
+        drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight,float2(1 - u, v));
     }
+    drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, 0, _GrassHeight, float2(0.5, 1));
+    
+    int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
+    for (int k = 0; k < numTrianglesPerBlade; ++k) {
+        AppendTriangle(drawVertices, k, faceNormal);
+    }
+    //}
     
     // counts the number of vertices, storing it in the indirect arguments
     // This tells the renderer how many vertices are in the mesh in DrawProcedural
-    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, numTrianglesPerBlade * numBladesPerVertex * 3);
+    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, numTrianglesPerBlade * 3);
 }
 
 

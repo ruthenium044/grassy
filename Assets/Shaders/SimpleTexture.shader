@@ -1,6 +1,7 @@
 Shader "Custom/SimpleUnlit" {
     Properties {
         _MainTex ("Texture", 2D) = "white" {}
+        _TopColor("Top Color", Color) = (1, 1, 1, 1)
         _BaseColor("Base Color", Color) = (1, 1, 1, 1)
     }
     SubShader{
@@ -42,6 +43,7 @@ Shader "Custom/SimpleUnlit" {
             
             CBUFFER_START(UnityPerMaterial)
                 half4 _BaseColor;            
+                half4 _TopColor;            
             CBUFFER_END
             
             VertexOutput Vertex(uint vertexID: SV_VertexID) {
@@ -58,8 +60,11 @@ Shader "Custom/SimpleUnlit" {
             }
  
             float4 Fragment(VertexOutput input) : SV_Target {
+                float t = input.uv.y;
+                float4 col = lerp(_BaseColor, _TopColor, t);
+            
                 float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-                return albedo * _BaseColor;
+                return albedo * col;
             }
             ENDHLSL
         }

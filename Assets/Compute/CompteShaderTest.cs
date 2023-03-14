@@ -9,16 +9,17 @@ using UnityEngine.Serialization;
 
 public class CompteShaderTest : MonoBehaviour
 {
+    [SerializeField] private Mesh sourceMesh = default;
     [SerializeField] private ComputeShader grassComputeShader = default;
     [SerializeField] private Material material = default;
     
     [SerializeField] private float grassHeight = 1;
-    private float grassWidth = 0.2f;
+    [SerializeField] private float grassWidth = 0.2f;
     [Range(0, 1)] public float bladeRadius = 0.6f;
     [Range(0, 1)] public float bladeForwardAmount = 0.38f;
     [Range(1, 5)] public float bladeCurveAmount = 2;
 
-    private int bladeSegments = 4;
+    private int bladeSegments = 5;
     private int bladesPerVertex = 1;
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
@@ -28,7 +29,6 @@ public class CompteShaderTest : MonoBehaviour
         public Vector2 uv;
     }
     
-    private Mesh sourceMesh;
     private bool initialized;
     private ComputeBuffer sourceVertBuffer;
 
@@ -45,17 +45,20 @@ public class CompteShaderTest : MonoBehaviour
     private const int ARGS_STRIDE = sizeof(int) * 4;
 
      private void OnEnable() {
+         //Should be assert or not?
+         if (grassComputeShader == null || sourceMesh == null)
+         {
+             return;
+         }
+         
          if(initialized) {
             OnDisable();
         }
         initialized = true;
-
-        sourceMesh = GetComponent<MeshFilter>().sharedMesh;
         
         Vector3[] positions = sourceMesh.vertices;
         Vector3[] normals = sourceMesh.normals;
         Vector2[] uvs = sourceMesh.uv;
-
 
         SourceVertex[] vertices = new SourceVertex[positions.Length];
         for(int i = 0; i < vertices.Length; i++) {
@@ -66,14 +69,13 @@ public class CompteShaderTest : MonoBehaviour
             };
         }
         int numTriangles = vertices.Length;
-        int maxBladeTriangles = 4 * ((5 - 1) * 2 + 1);
+        int maxBladeTriangles = (bladeSegments - 1) * 2 + 1;
 
         sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
         sourceVertBuffer.SetData(vertices);
-
-        // We split each triangle into three new ones
-        drawBuffer = new ComputeBuffer(numTriangles * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
+        drawBuffer = new ComputeBuffer(vertices.Length * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
         drawBuffer.SetCounterValue(0);
+        
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
 
@@ -85,6 +87,14 @@ public class CompteShaderTest : MonoBehaviour
         
         //set vertex data
         grassComputeShader.SetInt("_NumSourceTriangles", numTriangles);
+        grassComputeShader.SetInt("_SegmentsPerBlade", bladeSegments);
+        
+        grassComputeShader.SetFloat("_GrassHeight", grassHeight);
+        grassComputeShader.SetFloat("_GrassWidth", grassWidth);
+
+        grassComputeShader.SetFloat("_BladeRadius", bladeRadius);
+        grassComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
+        grassComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, bladeCurveAmount));
 
         material.SetBuffer("_DrawTriangles", drawBuffer);
 
@@ -95,19 +105,11 @@ public class CompteShaderTest : MonoBehaviour
         
         localBounds = sourceMesh.bounds;
         localBounds.Expand(1);
-        
-        grassComputeShader.SetFloat("_GrassHeight", grassHeight);
-        grassComputeShader.SetFloat("_GrassWidth", grassWidth);
-
-        grassComputeShader.SetFloat("_BladeRadius", bladeRadius);
-        grassComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
-        grassComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, bladeCurveAmount));
      }
 
     private void OnDisable() {
         if(initialized) {
             sourceVertBuffer.Release();
-            //sourceTriBuffer.Release();
             drawBuffer.Release();
             argsBuffer.Release();
         }
@@ -115,6 +117,11 @@ public class CompteShaderTest : MonoBehaviour
     }
 
     private void LateUpdate() {
+        if (Application.isPlaying == false)
+        {
+            OnDisable();
+            OnEnable();
+        }
         drawBuffer.SetCounterValue(0);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
 
@@ -123,12 +130,7 @@ public class CompteShaderTest : MonoBehaviour
         grassComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
         grassComputeShader.SetFloat("_Height", grassHeight);
         
-        // Copy the count (stack size) of the draw buffer to the args buffer, at byte position zero
-        // This sets the vertex count for our draw procediral indirect call
-        ComputeBuffer.CopyCount(drawBuffer, argsBuffer, 0);
-        
         grassComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
-        
         Graphics.DrawProceduralIndirect(material, bounds, MeshTopology.Triangles, argsBuffer);
     }
      
