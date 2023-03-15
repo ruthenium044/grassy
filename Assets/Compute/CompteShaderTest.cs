@@ -7,6 +7,7 @@ using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Serialization;
 
+[ExecuteInEditMode]
 public class CompteShaderTest : MonoBehaviour
 {
     [SerializeField] private Mesh sourceMesh = default;
@@ -19,7 +20,7 @@ public class CompteShaderTest : MonoBehaviour
     [Range(0, 1)] public float bladeForwardAmount = 0.38f;
     [Range(1, 5)] public float bladeCurveAmount = 2;
 
-    private int bladeSegments = 5;
+    private int bladeSegments = 7;
     private int bladesPerVertex = 1;
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]

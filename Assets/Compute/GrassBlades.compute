@@ -95,7 +95,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     //{
     for (int i = 0; i < numSegmentsPerBlade; ++i) {
         float v = i / (float)numSegmentsPerBlade;
-        float u = 0.5f - (1 - v) * 0.5f;
+        float u = v * v * 0.5f;
         
         drawVertices[i * 2] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight, float2(u, v));
         drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight,float2(1 - u, v));

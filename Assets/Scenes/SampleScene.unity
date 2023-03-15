@@ -453,7 +453,7 @@ MonoBehaviour:
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   grassHeight: 1
-  grassWidth: 1
+  grassWidth: 0.2
   bladeRadius: 0.5
   bladeForwardAmount: 0
   bladeCurveAmount: 1
