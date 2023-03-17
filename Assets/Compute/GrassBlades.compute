@@ -54,12 +54,11 @@ DrawVertex TransformToWorldSpace(SourceVertex v) {
     return o;
 }
 
-DrawVertex GetGrassVertex(float3 positionOS, float width, float height, float2 uv) {
+DrawVertex GetGrassVertex(float3 positionOS, float3 offset, float width, float height, float2 uv) {
     DrawVertex output;
-    const float3 offset = float3(width * (uv.x - 0.5), height * uv.y, 0);
-    float3 newPosOS = positionOS + offset;
-    
-    output.positionWS = mul(_LocalToWorld, float4(newPosOS, 1)).xyz;
+    float3 newPos = float3(width * (uv.x - 0.5), height * uv.y, 0);
+    newPos += positionOS + offset;
+    output.positionWS = mul(_LocalToWorld, float4(newPos, 1)).xyz;
     output.uv = uv;
     return output;
 }
@@ -79,38 +78,43 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         return;
     }
     SourceVertex sv = _SourceVertices[id.x];
+    SourceVertex svNext = _SourceVertices[id.x + 1];
+    float distance = svNext.positionOS.x - sv.positionOS.x;
 
     float3 perpendicularAngle = float3(0, 0, 1);
     float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
     
     int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
-        
+    int numBladesPerVert = 3;
+    int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
+    
     float segmentHeight = _GrassHeight;
     float segmentWidth = _GrassWidth;
-    
-    DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
     float3 newPos = float3(sv.positionOS.x, sv.positionOS.y, sv.positionOS.z);
     
-    //for (int j = 0; j < numBladesPerVertex; ++j)
-    //{
-    for (int i = 0; i < numSegmentsPerBlade; ++i) {
-        float v = i / (float)numSegmentsPerBlade;
-        float u = v * v * 0.5f;
+    DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
+    for (int j = 0; j < numBladesPerVert; ++j)
+    {
+        float step = distance / (float)numBladesPerVert * j;
+        float3 offset = float3(step, 0, 0);
         
-        drawVertices[i * 2] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight, float2(u, v));
-        drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentWidth * 0.5, segmentHeight,float2(1 - u, v));
+        for (int i = 0; i < numSegmentsPerBlade; ++i) {
+            float v = i / (float)numSegmentsPerBlade;
+            float u = v * v * 0.5f;
+            
+            drawVertices[i * 2] = GetGrassVertex(newPos, offset, segmentWidth, segmentHeight, float2(u, v));
+            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, offset, segmentWidth, segmentHeight,float2(1 - u, v));
+        }
+        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, offset, 0, _GrassHeight, float2(0.5, 1));
+        
+        for (int k = 0; k < numTrianglesPerBlade; ++k) {
+            AppendTriangle(drawVertices, k, faceNormal);
+        }
     }
-    drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, 0, _GrassHeight, float2(0.5, 1));
-    
-    int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
-    for (int k = 0; k < numTrianglesPerBlade; ++k) {
-        AppendTriangle(drawVertices, k, faceNormal);
-    }
-    //}
     
     // counts the number of vertices, storing it in the indirect arguments
     // This tells the renderer how many vertices are in the mesh in DrawProcedural
-    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, numTrianglesPerBlade * 3);
+    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, numTrianglesPerBlade * 3 * numBladesPerVert);
 }
 
 
