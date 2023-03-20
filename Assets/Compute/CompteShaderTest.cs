@@ -13,16 +13,19 @@ public class CompteShaderTest : MonoBehaviour
     [SerializeField] private Mesh sourceMesh = default;
     [SerializeField] private ComputeShader grassComputeShader = default;
     [SerializeField] private Material material = default;
+    [SerializeField] [Range(1, 10)] private int bladeSegments;
+    [SerializeField] private int bladesPerVertex;
     
+    [Header("Grass Size")]
     [SerializeField] private float grassHeight = 1;
     [SerializeField] private float grassWidth = 0.2f;
+    [SerializeField] private float grassHeightFactor = 1;
+    [SerializeField] private float grassWidthFactor = 0.2f;
+    
     [Range(0, 1)] public float bladeRadius = 0.6f;
     [Range(0, 1)] public float bladeForwardAmount = 0.38f;
     [Range(1, 5)] public float bladeCurveAmount = 2;
-
-    private int bladeSegments = 7;
-    private int bladesPerVertex = 1;
-
+    
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct SourceVertex {
         public Vector3 position;
@@ -74,7 +77,7 @@ public class CompteShaderTest : MonoBehaviour
 
         sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
         sourceVertBuffer.SetData(vertices);
-        drawBuffer = new ComputeBuffer(vertices.Length * 3 * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
+        drawBuffer = new ComputeBuffer(vertices.Length * bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
         drawBuffer.SetCounterValue(0);
         
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
@@ -89,9 +92,12 @@ public class CompteShaderTest : MonoBehaviour
         //set vertex data
         grassComputeShader.SetInt("_NumSourceTriangles", numTriangles);
         grassComputeShader.SetInt("_SegmentsPerBlade", bladeSegments);
+        grassComputeShader.SetInt("_BladesPerVertex", bladesPerVertex);
         
         grassComputeShader.SetFloat("_GrassHeight", grassHeight);
         grassComputeShader.SetFloat("_GrassWidth", grassWidth);
+        grassComputeShader.SetFloat("_GrassHeightFactor", grassHeightFactor);
+        grassComputeShader.SetFloat("_GrassWidthFactor", grassWidthFactor);
 
         grassComputeShader.SetFloat("_BladeRadius", bladeRadius);
         grassComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
