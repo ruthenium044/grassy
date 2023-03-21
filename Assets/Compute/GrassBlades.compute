@@ -8,6 +8,7 @@ struct SourceVertex {
     float2 uv;
 };
 StructuredBuffer<SourceVertex> _SourceVertices;
+StructuredBuffer<int> _SourceTriangles;
 
 //Output
 struct DrawVertex {
@@ -52,32 +53,25 @@ float _BladeCurve;
 #define GRASS_VERTICES_PER_BLADE (MAX_GRASS_SEGMENTS * 2 + 1)
 
 // 2D Random
-float random (in float2 st) {
-    return frac(sin(dot(st.xy, float2(12.9898,78.233))) * 43758.5453123);
+float random (float2 st, float seed) {
+    return frac(sin(dot(st.xy + seed * 0.3, float2(12.9898,78.233))) * 43758.5453123);
 }
 
 // 2D Noise based on Morgan McGuire @morgan3d
 // https://www.shadertoy.com/view/4dS3Wd
-float noise (float2 st) {
+float noise (float2 st, float seed) {
     float2 i = floor(st);
     float2 f = frac(st);
-
     // Four corners in 2D of a tile
-    float a = random(i);
-    float b = random(i + float2(1.0, 0.0));
-    float c = random(i + float2(0.0, 1.0));
-    float d = random(i + float2(1.0, 1.0));
-
-    // Smooth Interpolation
-
+    float a = random(i, seed);
+    float b = random(i + float2(1.0, 0.0), seed);
+    float c = random(i + float2(0.0, 1.0), seed);
+    float d = random(i + float2(1.0, 1.0), seed);
     // Cubic Hermine Curve.  Same as SmoothStep()
     float2 u = f*f*(3.0-2.0*f);
-    // u = smoothstep(0.,1.,f);
-
     // Mix 4 coorners percentages
     return lerp(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
-
 
 float3x3 AxisAngleRotation(float angle, float3 axis) {
     float s = sin(angle);
@@ -96,13 +90,16 @@ DrawVertex TransformToWorldSpace(SourceVertex v) {
     return o;
 }
 
-float2 GetBladeSize(float3 pos) {
+float2 GetBladeSize(float3 pos, float seed) {
     float2 size;
-    size.x = noise(pos.xz) * _GrassWidthFactor + _GrassWidth;
-    size.y = noise(pos.xz) * _GrassHeightFactor + _GrassHeight;
+    size.x = noise(pos.xz, seed) * _GrassWidthFactor + _GrassWidth;
+    size.y = noise(pos.xz, seed) * _GrassHeightFactor + _GrassHeight;
     return size;
 }
 
+float2 GetBladeAngle(float3 pos, float seed) {
+    return noise(pos, seed) * PI * 2.0f;
+}
 
 DrawVertex GetGrassVertex(float3 positionOS, float3 offset, float2 size, float angle, float2 uv) {
     DrawVertex output;
@@ -124,21 +121,26 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
     _DrawTriangles.Append(tri);
 }
 
+float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
+    float r1 = noise(a.xz, seed);
+    float r2 = noise(c.xz, seed);
+    float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
+    return pt;
+}
+
 [numthreads(100,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
     if ((int)id.x >= _NumSourceTriangles) {
         return;
     }
+    int triStart = id.x * 3;
+    DrawVertex inputs[3];
+    inputs[0] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart]]);
+    inputs[1] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 1]]);
+    inputs[2] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 2]]);
+    
     SourceVertex sv = _SourceVertices[id.x];
     
-    //sv.positionOS.xz += rand(sv.positionOS.xz) * 0.5;
-    
-    SourceVertex svNext = _SourceVertices[id.x + 1];
-    float distance = svNext.positionOS.x - sv.positionOS.x;
-
-    float2 size = GetBladeSize(sv.positionOS);
-    float angle = noise(sv.positionOS) * PI * 2.0f + id.x;
- 
     float3 perpendicularAngle = float3(0, 0, 1);
     float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
     
@@ -149,18 +151,20 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float rand = noise(sv.positionOS.xz);
-        float step = distance / (float)numBladesPerVert * j;
-        float3 offset = float3(rand, 0, 0);
+        float3 newPos = GetTrianglePoint(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS, j);
+        float2 size = GetBladeSize(sv.positionOS, j);
+        float angle = GetBladeAngle(sv.positionOS, j);
+        
+        float3 offset = float3(0, 0, 0);
         
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * v * 0.5f;
             
-            drawVertices[i * 2] = GetGrassVertex(sv.positionOS, offset, size, angle, float2(u, v));
-            drawVertices[i * 2 + 1] = GetGrassVertex(sv.positionOS, offset, size, angle, float2(1 - u, v));
+            drawVertices[i * 2] = GetGrassVertex(newPos, offset, size, angle, float2(u, v));
+            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, offset, size, angle, float2(1 - u, v));
         }
-        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(sv.positionOS, offset, size, angle, float2(0.5, 1));
+        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, offset, size, angle, float2(0.5, 1));
         
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
             AppendTriangle(drawVertices, k, faceNormal);

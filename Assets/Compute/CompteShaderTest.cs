@@ -35,7 +35,7 @@ public class CompteShaderTest : MonoBehaviour
     
     private bool initialized;
     private ComputeBuffer sourceVertBuffer;
-
+    private ComputeBuffer sourceTriBuffer;
     private ComputeBuffer drawBuffer;
     private ComputeBuffer argsBuffer;
 
@@ -45,6 +45,7 @@ public class CompteShaderTest : MonoBehaviour
     private Bounds localBounds;
 
     private static readonly int SOURCE_VERT_STRIDE = UnsafeUtility.SizeOf<SourceVertex>();
+    private const int SOURCE_TRI_STRIDE = sizeof(int);
     private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2) * 3);
     private const int ARGS_STRIDE = sizeof(int) * 4;
 
@@ -63,7 +64,8 @@ public class CompteShaderTest : MonoBehaviour
         Vector3[] positions = sourceMesh.vertices;
         Vector3[] normals = sourceMesh.normals;
         Vector2[] uvs = sourceMesh.uv;
-
+        int[] tris = sourceMesh.triangles;
+        
         SourceVertex[] vertices = new SourceVertex[positions.Length];
         for(int i = 0; i < vertices.Length; i++) {
             vertices[i] = new SourceVertex() {
@@ -72,20 +74,23 @@ public class CompteShaderTest : MonoBehaviour
                 uv = uvs[i],
             };
         }
-        int numTriangles = vertices.Length;
+
+        int numTriangles = tris.Length / 3;
         int maxBladeTriangles = (bladeSegments - 1) * 2 + 1;
 
         sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
         sourceVertBuffer.SetData(vertices);
-        drawBuffer = new ComputeBuffer(vertices.Length * bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
+        sourceTriBuffer = new ComputeBuffer(tris.Length, SOURCE_TRI_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
+        sourceTriBuffer.SetData(tris);
+        drawBuffer = new ComputeBuffer(numTriangles * 3 * bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
         drawBuffer.SetCounterValue(0);
-        
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
 
         idKarnel = grassComputeShader.FindKernel("CSMain");
        
         grassComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
+        grassComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         grassComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
         grassComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
         
@@ -117,6 +122,7 @@ public class CompteShaderTest : MonoBehaviour
     private void OnDisable() {
         if(initialized) {
             sourceVertBuffer.Release();
+            sourceTriBuffer.Release();
             drawBuffer.Release();
             argsBuffer.Release();
         }

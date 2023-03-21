@@ -509,11 +509,11 @@ MonoBehaviour:
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   bladeSegments: 4
-  bladesPerVertex: 1
-  grassHeight: 1
-  grassWidth: 0.05
-  grassHeightFactor: 0.6
-  grassWidthFactor: 0.1
+  bladesPerVertex: 40
+  grassHeight: 0.5
+  grassWidth: 0.02
+  grassHeightFactor: 0.3
+  grassWidthFactor: 0.06
   bladeRadius: 0.17
   bladeForwardAmount: 0
   bladeCurveAmount: 1
@@ -570,7 +570,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: ef6a4a967ab2b994e9418e411c187089, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
