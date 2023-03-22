@@ -43,10 +43,9 @@ float _GrassWidth;
 float _GrassHeightFactor;
 float _GrassWidthFactor;
 
-// Blade
-half _BladeRadius;
 float _BladeForward;
 float _BladeCurve;
+float _OriginDisplacement;
 
 #define PI 3.14159265358979323846
 #define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
@@ -90,6 +89,13 @@ DrawVertex TransformToWorldSpace(SourceVertex v) {
     return o;
 }
 
+float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
+    float r1 = noise(a.xz, seed);
+    float r2 = noise(c.xz, seed);
+    float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
+    return pt;
+}
+
 float2 GetBladeSize(float3 pos, float seed) {
     float2 size;
     size.x = noise(pos.xz, seed) * _GrassWidthFactor + _GrassWidth;
@@ -101,12 +107,12 @@ float2 GetBladeAngle(float3 pos, float seed) {
     return noise(pos, seed) * PI * 2.0f;
 }
 
-DrawVertex GetGrassVertex(float3 positionOS, float3 offset, float2 size, float angle, float2 uv) {
+DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv) {
     DrawVertex output;
-    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, 0);
     const float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
+    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
     
-    newPos = positionOS + mul(rotationMatrix, newPos) + offset;
+    newPos = positionOS + mul(rotationMatrix, newPos);
     output.positionWS = mul(_LocalToWorld, float4(newPos, 1)).xyz;
     output.uv = uv;
     return output;
@@ -121,12 +127,6 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
     _DrawTriangles.Append(tri);
 }
 
-float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
-    float r1 = noise(a.xz, seed);
-    float r2 = noise(c.xz, seed);
-    float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
-    return pt;
-}
 
 [numthreads(100,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
@@ -154,17 +154,18 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         float3 newPos = GetTrianglePoint(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS, j);
         float2 size = GetBladeSize(sv.positionOS, j);
         float angle = GetBladeAngle(sv.positionOS, j);
-        
-        float3 offset = float3(0, 0, 0);
-        
+
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
-            float u = v * v * 0.5f;
-            
-            drawVertices[i * 2] = GetGrassVertex(newPos, offset, size, angle, float2(u, v));
-            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, offset, size, angle, float2(1 - u, v));
+            float u = v * 0.5f;
+
+            if (v == 0) { u += _OriginDisplacement; }
+            float segmentForward = pow(v, _BladeCurve) * _BladeForward;
+     
+            drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v));
+            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v));
         }
-        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, offset, size, angle, float2(0.5, 1));
+        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1));
         
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
             AppendTriangle(drawVertices, k, faceNormal);
