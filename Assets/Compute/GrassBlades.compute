@@ -69,7 +69,7 @@ float noise (float2 st, float seed) {
     // Cubic Hermine Curve.  Same as SmoothStep()
     float2 u = f*f*(3.0-2.0*f);
     // Mix 4 coorners percentages
-    return lerp(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 
 float3x3 AxisAngleRotation(float angle, float3 axis) {
@@ -103,8 +103,8 @@ float2 GetBladeSize(float3 pos, float seed) {
     return size;
 }
 
-float2 GetBladeAngle(float3 pos, float seed) {
-    return noise(pos, seed) * PI * 2.0f;
+float GetBladeAngle(float3 pos, float seed) {
+    return noise(pos.xz, seed) * PI * 2.0f;
 }
 
 DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv) {
@@ -126,7 +126,6 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
     tri.vertices[2] = drawVertices[k + 2];
     _DrawTriangles.Append(tri);
 }
-
 
 [numthreads(100,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
@@ -160,7 +159,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
             float u = v * 0.5f;
 
             if (v == 0) { u += _OriginDisplacement; }
-            float segmentForward = pow(v, _BladeCurve) * _BladeForward;
+            float segmentForward = pow(abs(v), _BladeCurve) * _BladeForward;
      
             drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v));
             drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v));
@@ -168,7 +167,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1));
         
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
-            AppendTriangle(drawVertices, k, faceNormal);
+            AppendTriangle(drawVertices, k, sv.normalOS);
         }
     }
     

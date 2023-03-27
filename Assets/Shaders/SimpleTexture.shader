@@ -13,6 +13,7 @@ Shader "Custom/SimpleUnlit" {
         Blend SrcAlpha OneMinusSrcAlpha
 
         Pass {
+            Name "ForwardLit"
             HLSLPROGRAM
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
@@ -35,7 +36,7 @@ Shader "Custom/SimpleUnlit" {
 
             StructuredBuffer<DrawTriangle> _DrawTriangles;
             
-            struct VertexOutput {
+            struct Attributes {
                 float3 positionWS   : TEXCOORD0;
                 float3 normalWS     : TEXCOORD1;
                 float2 uv           : TEXCOORD2;
@@ -51,29 +52,41 @@ Shader "Custom/SimpleUnlit" {
             
             float _FadeAmount;
             
-            VertexOutput Vertex(uint vertexID: SV_VertexID) {
-                VertexOutput output = (VertexOutput)0;
-                 DrawTriangle tri = _DrawTriangles[vertexID / 3];
+            Attributes Vertex(uint vertexID: SV_VertexID) {
+                Attributes output = (Attributes)0;
+                DrawTriangle tri = _DrawTriangles[vertexID / 3];
                 DrawVertex input = tri.vertices[vertexID % 3];
             
+                output.positionCS = TransformWorldToHClip(input.positionWS);
                 output.positionWS = input.positionWS;
+        
                 output.normalWS = tri.normalWS;
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
-                
-                output.positionCS = TransformWorldToHClip(input.positionWS);
+
                 return output;
             }
  
-            float4 Fragment(VertexOutput input) : SV_Target {
+            float4 Fragment(Attributes input) : SV_Target {
                 float t = input.uv.y;
                 float4 col = lerp(_BaseColor, _TopColor, t);
                 
                 float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 float3 final = albedo.xyz * col.xyz;
                 
-                float fade = lerp(_FadeAmount, 2, t);
-     
-                return float4(final.xyz, fade);
+                float fade = lerp(_FadeAmount, 1, t);
+                
+                //lighting
+                InputData lightingInput = (InputData)0;
+                lightingInput.positionWS = input.positionWS;
+           	    lightingInput.normalWS = input.normalWS;
+           	    lightingInput.viewDirectionWS = normalize(GetCameraPositionWS() - input.positionWS);
+                //lightingInput.shadowCoord = ComputeScreenPos(input.positionCS);
+           	    
+           	    SurfaceData surfaceInput = (SurfaceData)0;
+           	    surfaceInput.albedo = final.xyz;
+                surfaceInput.alpha = fade;
+                	
+                return UniversalFragmentBlinnPhong(lightingInput, surfaceInput);
             }
             ENDHLSL
         }
