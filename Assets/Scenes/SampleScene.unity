@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18218867, g: 0.22464208, b: 0.28850636, a: 1}
+  m_IndirectSpecularColor: {r: 0.17420827, g: 0.21785617, b: 0.3000625, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -384,14 +384,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
-  m_LocalRotation: {x: 0.17144814, y: 0.02391637, z: -0.0016985724, w: 0.98490137}
+  m_LocalRotation: {x: 0.690254, y: -0.043007027, z: -0.14639919, w: 0.7072957}
   m_LocalPosition: {x: 0.82, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 19.743, y: 2.834, z: 0.296}
+  m_LocalEulerAnglesHint: {x: 74.544, y: -80.628, z: -89.09}
 --- !u!114 &410087042
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -508,8 +508,8 @@ MonoBehaviour:
   sourceMesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
-  bladeSegments: 6
-  bladesPerVertex: 158
+  bladeSegments: 4
+  bladesPerVertex: 64
   grassHeight: 0.5
   grassWidth: 0.07
   grassHeightFactor: 0.1

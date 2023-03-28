@@ -75,7 +75,7 @@ public class CompteShaderTest : MonoBehaviour
                 uv = uvs[i]
             };
         }
-
+        
         int numTriangles = tris.Length / 3;
         int maxBladeTriangles = (bladeSegments - 1) * 2 + 1;
 
@@ -115,7 +115,7 @@ public class CompteShaderTest : MonoBehaviour
         // Then, divide the number of triangles by that size
         grassComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
-        
+
         localBounds = sourceMesh.bounds;
         localBounds.Expand(1);
      }

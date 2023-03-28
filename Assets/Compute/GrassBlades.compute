@@ -82,11 +82,8 @@ float3x3 AxisAngleRotation(float angle, float3 axis) {
     return rotation;
 }
 
-DrawVertex TransformToWorldSpace(SourceVertex v) {
-    DrawVertex o;
-    o.positionWS = mul(_LocalToWorld, float4(v.positionOS, 1)).xyz;
-    o.uv = v.uv;
-    return o;
+float3 TransformToWorldSpace(float3 v) {
+    return mul(_LocalToWorld, float4(v, 1)).xyz;
 }
 
 float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
@@ -94,6 +91,12 @@ float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
     float r2 = noise(c.xz, seed);
     float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
     return pt;
+}
+
+float3 GetTriangleNormal(float3 a, float3 b, float3 c) {
+
+
+    return float3(0, 1, 0);
 }
 
 float2 GetBladeSize(float3 pos, float seed) {
@@ -133,15 +136,20 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         return;
     }
     int triStart = id.x * 3;
-    DrawVertex inputs[3];
-    inputs[0] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart]]);
-    inputs[1] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 1]]);
-    inputs[2] = TransformToWorldSpace(_SourceVertices[_SourceTriangles[triStart + 2]]);
+    SourceVertex inputs[3];
+    inputs[0] = _SourceVertices[_SourceTriangles[triStart]];
+    inputs[1] = _SourceVertices[_SourceTriangles[triStart + 1]];
+    inputs[2] = _SourceVertices[_SourceTriangles[triStart + 2]];
+    SourceVertex sv = _SourceVertices[_SourceTriangles[triStart]];
     
-    SourceVertex sv = _SourceVertices[id.x];
-    
-    float3 perpendicularAngle = float3(0, 0, 1);
-    float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
+    float3 positionsWS[3];
+    positionsWS[0] = TransformToWorldSpace(inputs[0].positionOS);
+    positionsWS[1] = TransformToWorldSpace(inputs[1].positionOS);
+    positionsWS[2] = TransformToWorldSpace(inputs[2].positionOS);
+
+    float3 normal = GetTriangleNormal(positionsWS[0], positionsWS[1], positionsWS[2]);
+    //float3 perpendicularAngle = float3(0, 0, 1);
+    //float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
     
     int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
     int numBladesPerVert = _BladesPerVertex;
@@ -150,9 +158,9 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float3 newPos = GetTrianglePoint(inputs[0].positionWS, inputs[1].positionWS, inputs[2].positionWS, j);
-        float2 size = GetBladeSize(sv.positionOS, j);
-        float angle = GetBladeAngle(sv.positionOS, j);
+        float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, j);
+        float2 size = GetBladeSize(positionsWS[0], j);
+        float angle = GetBladeAngle(positionsWS[1], j);
 
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
@@ -167,7 +175,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1));
         
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
-            AppendTriangle(drawVertices, k, sv.normalOS);
+            AppendTriangle(drawVertices, k, normal);
         }
     }
     

@@ -60,6 +60,8 @@ Shader "Custom/SimpleUnlit" {
                 output.positionCS = TransformWorldToHClip(input.positionWS);
                 output.positionWS = input.positionWS;
         
+                float3 faceNormal = GetMainLight().direction * tri.normalWS;
+                //output.normalWS = TransformObjectToWorldNormal(faceNormal, true);
                 output.normalWS = tri.normalWS;
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
 
@@ -85,8 +87,10 @@ Shader "Custom/SimpleUnlit" {
            	    SurfaceData surfaceInput = (SurfaceData)0;
            	    surfaceInput.albedo = final.xyz;
                 surfaceInput.alpha = fade;
-                	
-                return UniversalFragmentBlinnPhong(lightingInput, surfaceInput);
+                surfaceInput.specular = 1;
+                surfaceInput.smoothness = 1;
+
+                return UniversalFragmentBlinnPhong(lightingInput, surfaceInput);	
             }
             ENDHLSL
         }
