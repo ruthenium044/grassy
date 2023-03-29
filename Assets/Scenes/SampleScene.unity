@@ -505,18 +505,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc9e49e2b105b8b42b269de24f8aa0e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sourceMesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  sourceMesh: {fileID: -462981019419857548, guid: d04c69d5922898d4386e3cee21d45181,
+    type: 3}
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
-  bladeSegments: 4
-  bladesPerVertex: 64
+  bladeSegments: 5
+  bladesPerVertex: 25
   grassHeight: 0.5
-  grassWidth: 0.07
+  grassWidth: 0.02
   grassHeightFactor: 0.1
   grassWidthFactor: 0.11
-  bladeForwardAmount: 0.196
-  bladeCurveAmount: 3.89
-  bladeOriginiDisplacement: 0.268
+  bladeForwardAmount: 0.263
+  bladeCurveAmount: 3.71
+  bladeOriginiDisplacement: 0.326
 --- !u!1 &1434291248
 GameObject:
   m_ObjectHideFlags: 0
@@ -599,7 +600,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1434291248}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: -462981019419857548, guid: d04c69d5922898d4386e3cee21d45181, type: 3}
 --- !u!4 &1434291252
 Transform:
   m_ObjectHideFlags: 0
