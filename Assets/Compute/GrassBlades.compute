@@ -64,11 +64,10 @@ float random (float2 st, float seed) {
     return frac(sin(dot(st.xy + seed, float2(12.9898,78.233))) * 43758.5453123);
 }
 
-float noise(float x) {
-    float i = floor(x);
-    float f = frac(x);
-    float u = f * f * (3.0 - 2.0 * f);
-    return lerp(random(i), random(i + 1.0), u);
+float hash(float2 p) {
+    float3 p3 = frac(float3(p.xyx) * 0.13);
+    p3 += dot(p3, p3.yzx + 3.333);
+    return frac((p3.x + p3.y) * p3.z);
 }
 
 float noise (float2 st, float seed) {
@@ -83,6 +82,23 @@ float noise (float2 st, float seed) {
     float2 u = f*f*(3.0-2.0*f);
     // Mix 4 coorners percentages
     return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+float noise(float3 x, float seed) {
+    const float3 step = float3(110, 241, 171);
+
+    float3 i = floor(x);
+    float3 f = frac(x);
+ 
+    // For performance, compute the base input to a 1D hash from the integer part of the argument and the 
+    // incremental change to the 1D based on the 3D -> 1D wrapping
+    float n = dot(i, step);
+
+    float3 u = f * f * (3.0 - 2.0 * f);
+    return lerp(lerp(lerp( random(n + dot(step, float3(0, 0, 0)), seed), random(n + dot(step, float3(1, 0, 0)), seed), u.x),
+                   lerp( random(n + dot(step, float3(0, 1, 0)), seed), random(n + dot(step, float3(1, 1, 0)), seed), u.x), u.y),
+               lerp(lerp( random(n + dot(step, float3(0, 0, 1)), seed), random(n + dot(step, float3(1, 0, 1)), seed), u.x),
+                   lerp( random(n + dot(step, float3(0, 1, 1)), seed), random(n + dot(step, float3(1, 1, 1)), seed), u.x), u.y), u.z);
 }
 
 float3x3 AxisAngleRotation(float angle, float3 axis) {
@@ -100,8 +116,8 @@ float3 TransformToWorldSpace(float3 v) {
 }
 
 float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
-    float r1 = noise(a.x * 10 + a.z + seed);
-    float r2 = noise(c.x * 10 + c.z + seed);
+    float r1 = noise(a.xyz, seed);
+    float r2 = noise(c.xyz, seed);
     float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
     return pt;
 }
@@ -169,10 +185,10 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        //float3 newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], j);
-        float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, j);
-        float2 size = GetBladeSize(inputs[0].positionOS, j);
-        float angle = GetBladeAngle(inputs[0].positionOS, j);
+        float3 newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], id.x * j);
+        //float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, id.x + j);
+        float2 size = GetBladeSize(TransformToWorldSpace(newPos), id.x);
+        float angle = GetBladeAngle(TransformToWorldSpace(newPos), id.x);
 
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
