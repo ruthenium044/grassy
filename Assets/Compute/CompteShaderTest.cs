@@ -14,7 +14,7 @@ public class CompteShaderTest : MonoBehaviour
     [SerializeField] private ComputeShader grassComputeShader = default;
     [SerializeField] private Material material = default;
     [SerializeField] [Range(1, 10)] private int bladeSegments;
-    [SerializeField] [Range(1, 500)] private int bladesPerVertex;
+    [SerializeField] [Range(1, 100)] private int bladesPerVertex;
     
     [Header("Blade Size")]
     [SerializeField] private float grassHeight = 1;

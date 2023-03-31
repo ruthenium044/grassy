@@ -64,12 +64,6 @@ float random (float2 st, float seed) {
     return frac(sin(dot(st.xy + seed, float2(12.9898,78.233))) * 43758.5453123);
 }
 
-float hash(float2 p) {
-    float3 p3 = frac(float3(p.xyx) * 0.13);
-    p3 += dot(p3, p3.yzx + 3.333);
-    return frac((p3.x + p3.y) * p3.z);
-}
-
 float noise (float2 st, float seed) {
     float2 i = floor(st);
     float2 f = frac(st);
@@ -115,9 +109,9 @@ float3 TransformToWorldSpace(float3 v) {
     return mul(_LocalToWorld, float4(v, 1)).xyz;
 }
 
-float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
-    float r1 = noise(a.xyz, seed);
-    float r2 = noise(c.xyz, seed);
+float3 GetTrianglePoint(float3 a, float3 b, float3 c, float3 seed) {
+    float r1 = noise(seed.xz, random(seed.xz, seed.x));
+    float r2 = noise(seed.xz, random(seed.xz, seed.z));
     float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
     return pt;
 }
@@ -183,12 +177,14 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
+    float3 newPos = positionsWS[0];
+    
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float3 newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], id.x * j);
+        newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], newPos);
         //float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, id.x + j);
-        float2 size = GetBladeSize(TransformToWorldSpace(newPos), id.x);
-        float angle = GetBladeAngle(TransformToWorldSpace(newPos), id.x);
+        float2 size = GetBladeSize(TransformToWorldSpace(newPos), newPos);
+        float angle = GetBladeAngle(TransformToWorldSpace(newPos), newPos);
 
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
