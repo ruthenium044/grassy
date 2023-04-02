@@ -33,6 +33,7 @@ struct IndirectArgs {
 RWStructuredBuffer<IndirectArgs> _IndirectArgsBuffer;
 
 float4x4 _LocalToWorld;
+float4 _Bounds;
 
 int _NumSourceTriangles;
 int _SegmentsPerBlade;
@@ -47,52 +48,29 @@ float _BladeForward;
 float _BladeCurve;
 float _OriginDisplacement;
 
+
 #define PI 3.14159265358979323846
 #define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
 #define GRASS_VERTICES_PER_BLADE (MAX_GRASS_SEGMENTS * 2 + 1)
 
+//https://dvic.devinci.fr/tutorial/Cellular-Automata-with-Shaders
+float customRand (float2 st, float seed) {
+    return max(0.001, frac(sin(dot(st.xy + seed, float2(12.9898,78.233) * 0.2)) * 43758.5453123));
+}
 // 2D Noise based on Morgan McGuire @morgan3d
 // https://www.shadertoy.com/view/4dS3Wd
-float random(float p) {
-    p = frac(p * 0.011);
-    p *= p + 7.5;
-    p *= p + p;
-    return frac(p);
-}
-
-float random (float2 st, float seed) {
-    return frac(sin(dot(st.xy + seed, float2(12.9898,78.233))) * 43758.5453123);
-}
-
 float noise (float2 st, float seed) {
     float2 i = floor(st);
     float2 f = frac(st);
     // Four corners in 2D of a tile
-    float a = random(i, seed);
-    float b = random(i + float2(1.0, 0.0), seed);
-    float c = random(i + float2(0.0, 1.0), seed);
-    float d = random(i + float2(1.0, 1.0), seed);
+    float a = customRand(i, seed);
+    float b = customRand(i + float2(1.0, 0.0), seed);
+    float c = customRand(i + float2(0.0, 1.0), seed);
+    float d = customRand(i + float2(1.0, 1.0), seed);
     // Cubic Hermine Curve.  Same as SmoothStep()
     float2 u = f*f*(3.0-2.0*f);
     // Mix 4 coorners percentages
     return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-float noise(float3 x, float seed) {
-    const float3 step = float3(110, 241, 171);
-
-    float3 i = floor(x);
-    float3 f = frac(x);
- 
-    // For performance, compute the base input to a 1D hash from the integer part of the argument and the 
-    // incremental change to the 1D based on the 3D -> 1D wrapping
-    float n = dot(i, step);
-
-    float3 u = f * f * (3.0 - 2.0 * f);
-    return lerp(lerp(lerp( random(n + dot(step, float3(0, 0, 0)), seed), random(n + dot(step, float3(1, 0, 0)), seed), u.x),
-                   lerp( random(n + dot(step, float3(0, 1, 0)), seed), random(n + dot(step, float3(1, 1, 0)), seed), u.x), u.y),
-               lerp(lerp( random(n + dot(step, float3(0, 0, 1)), seed), random(n + dot(step, float3(1, 0, 1)), seed), u.x),
-                   lerp( random(n + dot(step, float3(0, 1, 1)), seed), random(n + dot(step, float3(1, 1, 1)), seed), u.x), u.y), u.z);
 }
 
 float3x3 AxisAngleRotation(float angle, float3 axis) {
@@ -110,9 +88,9 @@ float3 TransformToWorldSpace(float3 v) {
 }
 
 float3 GetTrianglePoint(float3 a, float3 b, float3 c, float3 seed) {
-    float r1 = noise(seed.xz, random(seed.xz, seed.x));
-    float r2 = noise(seed.xz, random(seed.xz, seed.z));
-    float3 pt = (1 - sqrt(r1)) * a + (sqrt(r1) * (1 - r2)) * b + (sqrt(r1) * r2) * c;
+    float r1 = sqrt(noise(seed.xz, seed.x));
+    float r2 = noise(seed.xz, seed.z);
+    float3 pt = (1 - r1) * a + (r1 * (1 - r2)) * b + (r1 * r2) * c;
     return pt;
 }
 
@@ -140,7 +118,7 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
     float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
     
     newPos = positionOS + mul(rotationMatrix, newPos);
-    output.positionWS = mul(_LocalToWorld, float4(newPos, 1)).xyz;
+    output.positionWS = TransformToWorldSpace(newPos);
     output.uv = uv;
     return output;
 }
@@ -181,10 +159,11 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], newPos);
-        //float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, id.x + j);
-        float2 size = GetBladeSize(TransformToWorldSpace(newPos), newPos);
-        float angle = GetBladeAngle(TransformToWorldSpace(newPos), newPos);
+        float3 seed = newPos.xyz / (float)numBladesPerVert / _Bounds;
+        //newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], seed);
+        newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seed);
+        float2 size = GetBladeSize(inputs[0].positionOS, seed.x);
+        float angle = GetBladeAngle(inputs[0].positionOS, seed.x);
 
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;

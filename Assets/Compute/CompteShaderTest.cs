@@ -40,6 +40,9 @@ public class CompteShaderTest : MonoBehaviour
     private ComputeBuffer drawBuffer;
     private ComputeBuffer argsBuffer;
 
+    private ComputeShader instantiatedComputeShader;
+    private Material instantiatedMaterial;
+
     private int idKarnel;
     private int dispatchSize;
 
@@ -61,21 +64,26 @@ public class CompteShaderTest : MonoBehaviour
             OnDisable();
         }
         initialized = true;
+
+        instantiatedComputeShader = Instantiate(grassComputeShader);
+        instantiatedMaterial = Instantiate(material);
         
         Vector3[] positions = sourceMesh.vertices;
         Vector3[] normals = sourceMesh.normals;
         Vector2[] uvs = sourceMesh.uv;
         int[] tris = sourceMesh.triangles;
-        
         SourceVertex[] vertices = new SourceVertex[positions.Length];
+
+        Bounds bounds = new Bounds();
+        
         for(int i = 0; i < vertices.Length; i++) {
             vertices[i] = new SourceVertex() {
                 position = positions[i],
                 normal = normals[i],
                 uv = uvs[i]
             };
+            bounds.Encapsulate(positions[i]);
         }
-        
         int numTriangles = tris.Length / 3;
         int maxBladeTriangles = (bladeSegments - 1) * 2 + 1;
 
@@ -88,32 +96,33 @@ public class CompteShaderTest : MonoBehaviour
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
 
-        idKarnel = grassComputeShader.FindKernel("CSMain");
+        idKarnel = instantiatedComputeShader.FindKernel("CSMain");
        
-        grassComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
-        grassComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
-        grassComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
-        grassComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
+        instantiatedComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
+        instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
+        instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
+        instantiatedComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
         
+        instantiatedComputeShader.SetVector("_Bounds", bounds.extents);
         //set vertex data
-        grassComputeShader.SetInt("_NumSourceTriangles", numTriangles);
-        grassComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1,bladeSegments));
-        grassComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, bladesPerVertex));
+        instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
+        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1,bladeSegments));
+        instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, bladesPerVertex));
         
-        grassComputeShader.SetFloat("_GrassHeight", grassHeight);
-        grassComputeShader.SetFloat("_GrassWidth", grassWidth);
-        grassComputeShader.SetFloat("_GrassHeightFactor", grassHeightFactor);
-        grassComputeShader.SetFloat("_GrassWidthFactor", grassWidthFactor);
+        instantiatedComputeShader.SetFloat("_GrassHeight", grassHeight);
+        instantiatedComputeShader.SetFloat("_GrassWidth", grassWidth);
+        instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassHeightFactor);
+        instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassWidthFactor);
         
-        grassComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
-        grassComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, bladeCurveAmount));
-        grassComputeShader.SetFloat("_OriginDisplacement", bladeOriginiDisplacement);
+        instantiatedComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
+        instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, bladeCurveAmount));
+        instantiatedComputeShader.SetFloat("_OriginDisplacement", bladeOriginiDisplacement);
 
-        material.SetBuffer("_DrawTriangles", drawBuffer);
+        instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
 
         // Calculate the number of threads to use. Get the thread size from the kernel
         // Then, divide the number of triangles by that size
-        grassComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
+        instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
 
         localBounds = sourceMesh.bounds;
@@ -122,6 +131,17 @@ public class CompteShaderTest : MonoBehaviour
 
     private void OnDisable() {
         if(initialized) {
+            if (Application.isPlaying)
+            {
+                Destroy(instantiatedComputeShader);
+                Destroy(instantiatedMaterial);
+            }
+            else
+            {
+                DestroyImmediate(instantiatedComputeShader);
+                DestroyImmediate(instantiatedMaterial);
+            }
+            
             sourceVertBuffer.Release();
             sourceTriBuffer.Release();
             drawBuffer.Release();
@@ -141,11 +161,11 @@ public class CompteShaderTest : MonoBehaviour
 
         Bounds bounds = TransformBounds(localBounds);
 
-        grassComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-        grassComputeShader.SetFloat("_Height", grassHeight);
+        instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+        instantiatedComputeShader.SetFloat("_Height", grassHeight);
         
-        grassComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
-        Graphics.DrawProceduralIndirect(material, bounds, MeshTopology.Triangles, argsBuffer);
+        instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
+        Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
      
     // This applies the game object's transform to the local bounds
