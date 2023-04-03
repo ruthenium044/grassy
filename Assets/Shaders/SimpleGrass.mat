@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Unlit
+  m_Name: SimpleGrass
   m_Shader: {fileID: 4800000, guid: 00de32acbe723454d9291f2e6dfc29cb, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
@@ -89,7 +89,7 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _EnvironmentReflections: 1
-    - _FadeAmount: 1
+    - _FadeAmount: 0.8
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
@@ -110,7 +110,7 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _TopColor: {r: 0.56897324, g: 0.7058824, b: 0.02352939, a: 1}
+    - _TopColor: {r: 0.44464323, g: 0.5566038, b: 0, a: 1}
   m_BuildTextureStacks: []
 --- !u!114 &4852203355002853397
 MonoBehaviour:

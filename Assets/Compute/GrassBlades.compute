@@ -33,7 +33,6 @@ struct IndirectArgs {
 RWStructuredBuffer<IndirectArgs> _IndirectArgsBuffer;
 
 float4x4 _LocalToWorld;
-float4 _Bounds;
 
 int _NumSourceTriangles;
 int _SegmentsPerBlade;
@@ -48,6 +47,9 @@ float _BladeForward;
 float _BladeCurve;
 float _OriginDisplacement;
 
+//Camera LOD
+float3 _CameraLOD;
+float4 _CameraPos;
 
 #define PI 3.14159265358979323846
 #define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
@@ -73,43 +75,53 @@ float noise (float2 st, float seed) {
     return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 
+//https://en.wikipedia.org/wiki/Rotation_matrix
 float3x3 AxisAngleRotation(float angle, float3 axis) {
     float s = sin(angle);
     float c = cos(angle);
     float3x3 rotation = float3x3(
-        c + axis.x * axis.x * (1 - c), axis.x * axis.y * (1 - c) - axis.z * s, axis.x * axis.z * (1 - c) + axis.y * s,
-        axis.x * axis.y * (1 - c) + axis.z * s, c + axis.y * axis.y * (1 - c), axis.y * axis.z * (1 - c) - axis.x * s,
-        axis.x * axis.z * (1 - c) + axis.y * s, axis.y * axis.z * (1 - c) - axis.x * s, c + axis.z * axis.z * (1 - c));
+        c + axis.x * axis.x * (1.0f - c), axis.x * axis.y * (1.0f - c) - axis.z * s, axis.x * axis.z * (1.0f - c) + axis.y * s,
+        axis.x * axis.y * (1.0f - c) + axis.z * s, c + axis.y * axis.y * (1.0f - c), axis.y * axis.z * (1.0f - c) - axis.x * s,
+        axis.x * axis.z * (1.0f - c) + axis.y * s, axis.y * axis.z * (1.0f - c) - axis.x * s, c + axis.z * axis.z * (1.0f - c));
     return rotation;
 }
 
-float3 TransformToWorldSpace(float3 v) {
-    return mul(_LocalToWorld, float4(v, 1)).xyz;
-}
-
+//https://stackoverflow.com/questions/19654251/random-point-inside-triangle-inside-java
 float3 GetTrianglePoint(float3 a, float3 b, float3 c, float3 seed) {
     float r1 = sqrt(noise(seed.xz, seed.x));
     float r2 = noise(seed.xz, seed.z);
-    float3 pt = (1 - r1) * a + (r1 * (1 - r2)) * b + (r1 * r2) * c;
+    float3 pt = (1.0f - r1) * a + (r1 * (1.0f - r2)) * b + (r1 * r2) * c;
     return pt;
 }
 
-float3 GetTriangleNormal(float3 a, float3 b, float3 c) {
-
-    //float3 perpendicularAngle = float3(0, 0, 1);
-    //float3 faceNormal = cross(perpendicularAngle, sv.normalOS); 
-    return float3(0, 1, 0);
+float3 TransformToWorldSpace(float3 v) {
+    return mul(_LocalToWorld, float4(v, 1.0f)).xyz;
 }
 
-float2 GetBladeSize(float3 pos, float seed) {
+float3 GetTriangleNormal(float3 a, float3 b, float3 c) {
+    return cross(b - a, c - a);
+}
+
+float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
+    return (a + b + c) / 3.0f;
+}
+
+float2 GetBladeSize(float3 seed) {
     float2 size;
-    size.x = noise(pos.xz, seed) * _GrassWidthFactor + _GrassWidth;
-    size.y = noise(pos.xz, seed) * _GrassHeightFactor + _GrassHeight;
+    size.x = customRand(seed.xz, seed.x) * _GrassWidthFactor + _GrassWidth;
+    size.y = customRand(seed.xz, seed.z) * _GrassHeightFactor + _GrassHeight;
     return size;
 }
 
-float GetBladeAngle(float3 pos, float seed) {
-    return noise(pos.xz, seed) * PI * 2.0f;
+float2 GetBladeSizeLOD(float3 positionWS, float2 size) {
+    float d = distance(positionWS, _CameraPos.xyz);
+    d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
+    d = pow(d, _CameraLOD.z);
+    return min(size, max(0.0f, d * size));
+}
+
+float GetBladeAngle(float3 seed) {
+    return customRand(seed.xz, seed.x) * PI * 2.0f;
 }
 
 DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv) {
@@ -132,6 +144,13 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
     _DrawTriangles.Append(tri);
 }
 
+int GetSegments(float3 positionWS) {
+    float d = distance(positionWS, _CameraPos.xyz);
+    d = 1 - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
+    d = pow(d, _CameraLOD.z);
+    return min(MAX_GRASS_SEGMENTS, max(1, ceil(d * _SegmentsPerBlade)));
+}
+
 [numthreads(100,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
     if ((int)id.x >= _NumSourceTriangles) {
@@ -149,21 +168,21 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     positionsWS[2] = TransformToWorldSpace(inputs[2].positionOS);
     
     float3 normal = GetTriangleNormal(positionsWS[0], positionsWS[1], positionsWS[2]);
+    int numBladesPerVert = _BladesPerVertex;
     
     int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
-    int numBladesPerVert = _BladesPerVertex;
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
-    float3 newPos = positionsWS[0];
+    float3 newPos = inputs[0].positionOS;
     
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float3 seed = newPos.xyz / (float)numBladesPerVert / _Bounds;
-        //newPos = GetTrianglePoint(positionsWS[0], positionsWS[1], positionsWS[2], seed);
-        newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seed);
-        float2 size = GetBladeSize(inputs[0].positionOS, seed.x);
-        float angle = GetBladeAngle(inputs[0].positionOS, seed.x);
+        float3 seedPos = newPos.xyz / (float)numBladesPerVert * 0.2f;
+        newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seedPos);
+        float angle = GetBladeAngle(seedPos);
+        float2 size = GetBladeSize(seedPos);
+        size = GetBladeSizeLOD(TransformToWorldSpace(newPos), size);
 
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;

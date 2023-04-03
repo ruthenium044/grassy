@@ -10,22 +10,8 @@ using UnityEngine.Serialization;
 [ExecuteInEditMode]
 public class CompteShaderTest : MonoBehaviour
 {
-    [SerializeField] private Mesh sourceMesh = default;
-    [SerializeField] private ComputeShader grassComputeShader = default;
-    [SerializeField] private Material material = default;
-    [SerializeField] [Range(1, 10)] private int bladeSegments;
-    [SerializeField] [Range(1, 100)] private int bladesPerVertex;
-    
-    [Header("Blade Size")]
-    [SerializeField] private float grassHeight = 1;
-    [SerializeField] private float grassWidth = 0.2f;
-    [SerializeField] private float grassHeightFactor = 1;
-    [SerializeField] private float grassWidthFactor = 0.2f;
-
-    [Header("Blade Shape")]
-    [SerializeField] [Range(0, 1)] private float bladeForwardAmount = 0.38f;
-    [SerializeField] [Range(1, 5)] private float bladeCurveAmount = 2;
-    [SerializeField] [Range(0, 0.5f)] private float bladeOriginiDisplacement = 0.38f;
+    [SerializeField] private ScriptableGrassBase grassData;
+    [SerializeField] internal Transform obj;
     
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct SourceVertex {
@@ -55,7 +41,7 @@ public class CompteShaderTest : MonoBehaviour
 
      private void OnEnable() {
          //Should be assert or not?
-         if (grassComputeShader == null || sourceMesh == null)
+         if (grassData.grassComputeShader == null || grassData.sourceMesh == null)
          {
              return;
          }
@@ -65,13 +51,13 @@ public class CompteShaderTest : MonoBehaviour
         }
         initialized = true;
 
-        instantiatedComputeShader = Instantiate(grassComputeShader);
-        instantiatedMaterial = Instantiate(material);
+        instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
+        instantiatedMaterial = Instantiate(grassData.material);
         
-        Vector3[] positions = sourceMesh.vertices;
-        Vector3[] normals = sourceMesh.normals;
-        Vector2[] uvs = sourceMesh.uv;
-        int[] tris = sourceMesh.triangles;
+        Vector3[] positions = grassData.sourceMesh.vertices;
+        Vector3[] normals = grassData.sourceMesh.normals;
+        Vector2[] uvs = grassData.sourceMesh.uv;
+        int[] tris = grassData.sourceMesh.triangles;
         SourceVertex[] vertices = new SourceVertex[positions.Length];
 
         Bounds bounds = new Bounds();
@@ -85,13 +71,13 @@ public class CompteShaderTest : MonoBehaviour
             bounds.Encapsulate(positions[i]);
         }
         int numTriangles = tris.Length / 3;
-        int maxBladeTriangles = (bladeSegments - 1) * 2 + 1;
+        int maxBladeTriangles = (grassData.bladeSegments - 1) * 2 + 1;
 
         sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
         sourceVertBuffer.SetData(vertices);
         sourceTriBuffer = new ComputeBuffer(tris.Length, SOURCE_TRI_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
         sourceTriBuffer.SetData(tris);
-        drawBuffer = new ComputeBuffer(numTriangles * 3 * bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
+        drawBuffer = new ComputeBuffer(numTriangles * 3 * grassData.bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
         drawBuffer.SetCounterValue(0);
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
         argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
@@ -102,21 +88,22 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
-        
-        instantiatedComputeShader.SetVector("_Bounds", bounds.extents);
+
         //set vertex data
         instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
-        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1,bladeSegments));
-        instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, bladesPerVertex));
+        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1,grassData.bladeSegments));
+        instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, grassData.bladesPerVertex));
         
-        instantiatedComputeShader.SetFloat("_GrassHeight", grassHeight);
-        instantiatedComputeShader.SetFloat("_GrassWidth", grassWidth);
-        instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassHeightFactor);
-        instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassWidthFactor);
+        instantiatedComputeShader.SetFloat("_GrassHeight", grassData.grassHeight);
+        instantiatedComputeShader.SetFloat("_GrassWidth", grassData.grassWidth);
+        instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassData.grassHeightFactor);
+        instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassData.grassWidthFactor);
         
-        instantiatedComputeShader.SetFloat("_BladeForward", bladeForwardAmount);
-        instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, bladeCurveAmount));
-        instantiatedComputeShader.SetFloat("_OriginDisplacement", bladeOriginiDisplacement);
+        instantiatedComputeShader.SetFloat("_BladeForward", grassData.bladeForwardAmount);
+        instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, grassData.bladeCurveAmount));
+        instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
+        
+        instantiatedComputeShader.SetVector("_CameraLOD", new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
 
         instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
 
@@ -125,7 +112,7 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
 
-        localBounds = sourceMesh.bounds;
+        localBounds = grassData.sourceMesh.bounds;
         localBounds.Expand(1);
      }
 
@@ -162,7 +149,8 @@ public class CompteShaderTest : MonoBehaviour
         Bounds bounds = TransformBounds(localBounds);
 
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
-        instantiatedComputeShader.SetFloat("_Height", grassHeight);
+        instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
+        instantiatedComputeShader.SetVector("_CameraPos", obj.position);
         
         instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);

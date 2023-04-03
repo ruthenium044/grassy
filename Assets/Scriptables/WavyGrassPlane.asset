@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2df7b10700ffa154e8b85e1b44dc05d3, type: 3}
+  m_Name: WavyGrassPlane
+  m_EditorClassIdentifier: 
+  sourceMesh: {fileID: -462981019419857548, guid: 0c6a0fdf843609748a763b414932a864,
+    type: 3}
+  grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
+  material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
+  bladeSegments: 5
+  bladesPerVertex: 20
+  grassHeight: 1
+  grassWidth: 0.2
+  grassHeightFactor: 1
+  grassWidthFactor: 0.2
+  bladeForwardAmount: 0.38
+  bladeCurveAmount: 2
+  bladeOriginDisplacement: 0.38
+  minLOD: 3
+  maxLOD: 9
+  factorLOD: 1
