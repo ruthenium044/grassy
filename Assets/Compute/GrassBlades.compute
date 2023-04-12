@@ -99,7 +99,14 @@ float3 TransformToWorldSpace(float3 v) {
 }
 
 float3 GetTriangleNormal(float3 a, float3 b, float3 c) {
-    return cross(b - a, c - a);
+    // The tangent, or X direction, points from a to b
+    //float3 tangentWS = normalize(b - a);
+    // The normal, or Z direction, is perpendicular to the lines formed by the triangle points
+    //return normalize(cross(tangentWS, c - a));
+    
+    float3 u = b - a;
+    float3 v = c - a;
+    return cross(u, v);
 }
 
 float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
@@ -118,6 +125,7 @@ float2 GetBladeSizeLOD(float3 positionWS, float2 size) {
     d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
     d = pow(d, _CameraLOD.z);
     return min(size, max(0.0f, d * size));
+    //return  lerp(result, (float2)0, step(result, 0.01f));
 }
 
 float GetBladeAngle(float3 seed) {
@@ -137,10 +145,13 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
 
 void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, float3 faceNormal) {
     DrawTriangle tri = (DrawTriangle)0;
-    tri.normalOS = faceNormal;
-    tri.vertices[0] = drawVertices[k];
+    int factor = k % 2 == 0;
+    tri.vertices[0] = drawVertices[k + (!factor * 2)];
     tri.vertices[1] = drawVertices[k + 1];
-    tri.vertices[2] = drawVertices[k + 2];
+    tri.vertices[2] = drawVertices[k + (factor * 2)];
+    
+    //faceNormal = GetTriangleNormal(tri.vertices[0].positionWS, tri.vertices[1].positionWS, tri.vertices[2].positionWS);
+    tri.normalOS = faceNormal;
     _DrawTriangles.Append(tri);
 }
 
@@ -161,20 +172,14 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     inputs[0] = _SourceVertices[_SourceTriangles[triStart]];
     inputs[1] = _SourceVertices[_SourceTriangles[triStart + 1]];
     inputs[2] = _SourceVertices[_SourceTriangles[triStart + 2]];
+    float3 newPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     
-    float3 positionsWS[3];
-    positionsWS[0] = TransformToWorldSpace(inputs[0].positionOS);
-    positionsWS[1] = TransformToWorldSpace(inputs[1].positionOS);
-    positionsWS[2] = TransformToWorldSpace(inputs[2].positionOS);
-    
-    float3 normal = GetTriangleNormal(positionsWS[0], positionsWS[1], positionsWS[2]);
     int numBladesPerVert = _BladesPerVertex;
-    
-    int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
+    int numSegmentsPerBlade = GetSegments(TransformToWorldSpace(newPos));//min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
-    float3 newPos = inputs[0].positionOS;
+    float3 normal = GetTriangleCenter(inputs[0].normalOS, inputs[1].normalOS, inputs[2].normalOS);
     
     for (int j = 0; j < numBladesPerVert; ++j)
     {
@@ -183,7 +188,8 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         float angle = GetBladeAngle(seedPos);
         float2 size = GetBladeSize(seedPos);
         size = GetBladeSizeLOD(TransformToWorldSpace(newPos), size);
-
+        //todo check if size is 0 and then just dont append. how?
+        
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * 0.5f;

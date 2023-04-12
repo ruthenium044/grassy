@@ -5,6 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.VisualScripting;
 using UnityEngine;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine.Serialization;
 
 [ExecuteInEditMode]
@@ -153,6 +154,7 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetVector("_CameraPos", obj.position);
         
         instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
+  
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
      
