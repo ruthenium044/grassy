@@ -105,6 +105,8 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
         
         instantiatedComputeShader.SetVector("_CameraLOD", new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
+        instantiatedComputeShader.SetFloat("_WindSpeed", 0.0001f);
+        instantiatedComputeShader.SetFloat("_WindStrength", 0.001f);
 
         instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
 
@@ -150,6 +152,7 @@ public class CompteShaderTest : MonoBehaviour
         Bounds bounds = TransformBounds(localBounds);
 
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+        instantiatedComputeShader.SetFloat("_Time", Time.time);
         instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
         instantiatedComputeShader.SetVector("_CameraPos", obj.position);
         

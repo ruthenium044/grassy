@@ -5,6 +5,7 @@ Shader "Custom/SimpleGrassLit" {
         _BaseColor("Base Color", Color) = (1, 1, 1, 1)
         
         _FadeAmount("Fade Amount", Range(0,1)) = 0.5
+        _FadeSize("Fade Size", Range(0,1)) = 0.5
     }
     
     HLSLINCLUDE
@@ -39,6 +40,7 @@ Shader "Custom/SimpleGrassLit" {
     CBUFFER_END
     
     float _FadeAmount;
+    float _FadeSize;
     
     Attributes Vertex(uint vertexID: SV_VertexID) {
         Attributes output = (Attributes)0;
@@ -59,13 +61,15 @@ Shader "Custom/SimpleGrassLit" {
         #ifdef SHADERPASS_SHADOWCASTER
             return 0;
         #else
+            float t = smoothstep(_FadeAmount - _FadeSize, _FadeAmount + _FadeSize, input.uv.y);
+            float fade = lerp(0.0f, 1.0f, t);
+            float _Cutoff = 0.5;
             
-            float t = input.uv.y;
+            t =  input.uv.y;
             float4 col = lerp(_BaseColor, _TopColor, t);
             
             float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
             float3 final = albedo.xyz * col.xyz;
-            float fade = lerp(_FadeAmount, 1.0f, t);
             
             //lighting
             InputData lightingInput = (InputData)0;
@@ -94,6 +98,7 @@ Shader "Custom/SimpleGrassLit" {
             
             Cull Off
             Blend SrcAlpha OneMinusSrcAlpha
+            AlphaToMask On
             
             HLSLPROGRAM
             #pragma prefer_hlslcc gles
@@ -101,6 +106,8 @@ Shader "Custom/SimpleGrassLit" {
             #pragma target 5.0
             
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             
@@ -111,28 +118,23 @@ Shader "Custom/SimpleGrassLit" {
         
         Pass {
             Name "ShadowCaster"
-            Tags{ "LightMode" = "ShadowCaster" }
+            Tags{"LightMode" = "ShadowCaster"}
 
             ZWrite On
             ZTest LEqual
             Cull Off
 
             HLSLPROGRAM
-
             #pragma prefer_hlslcc gles
             #pragma exclude_renderers d3d11_9x
             #pragma target 5.0
             
             #pragma multi_compile_shadowcaster
-            
+            #pragma shader_feature_local _ DISTANCE_DETAIL
             #pragma vertex Vertex
             #pragma fragment Fragment
-
-             #define SHADERPASS_SHADOWCASTER
-            
-            #pragma shader_feature_local _ DISTANCE_DETAIL
-            
-            
+         
+            #define SHADERPASS_SHADOWCASTER
             ENDHLSL
         }
     }

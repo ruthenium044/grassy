@@ -23,7 +23,7 @@ MonoBehaviour:
   grassHeightFactor: 1
   grassWidthFactor: 0.2
   bladeForwardAmount: 0.38
-  bladeCurveAmount: 2
+  bladeCurveAmount: 4
   bladeOriginDisplacement: 0.38
   minLOD: 3
   maxLOD: 9

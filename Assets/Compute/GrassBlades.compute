@@ -33,6 +33,7 @@ struct IndirectArgs {
 RWStructuredBuffer<IndirectArgs> _IndirectArgsBuffer;
 
 float4x4 _LocalToWorld;
+float _Time;
 
 int _NumSourceTriangles;
 int _SegmentsPerBlade;
@@ -50,6 +51,10 @@ float _OriginDisplacement;
 //Camera LOD
 float3 _CameraLOD;
 float4 _CameraPos;
+
+//Wind
+half _WindSpeed;
+float _WindStrength;
 
 #define PI 3.14159265358979323846
 #define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
@@ -123,9 +128,8 @@ float2 GetBladeSize(float3 seed) {
 float2 GetBladeSizeLOD(float3 positionWS, float2 size) {
     float d = distance(positionWS, _CameraPos.xyz);
     d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
-    d = pow(d, _CameraLOD.z);
+    d = pow(abs(d), _CameraLOD.z);
     return min(size, max(0.0f, d * size));
-    //return  lerp(result, (float2)0, step(result, 0.01f));
 }
 
 float GetBladeAngle(float3 seed) {
@@ -162,7 +166,13 @@ int GetSegments(float3 positionWS) {
     return min(MAX_GRASS_SEGMENTS, max(1, ceil(d * _SegmentsPerBlade)));
 }
 
-[numthreads(100,1,1)]
+float3 GetWindOffset() {
+    float speed = 7.0f;
+    float frequnecy = 0.01f;
+    return float3(sin(speed * _Time.x) * frequnecy, 0.0, 0.0);
+}
+
+[numthreads(128,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
     if ((int)id.x >= _NumSourceTriangles) {
         return;
@@ -175,7 +185,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     float3 newPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     
     int numBladesPerVert = _BladesPerVertex;
-    int numSegmentsPerBlade = GetSegments(TransformToWorldSpace(newPos));//min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
+    int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade)); //GetSegments(TransformToWorldSpace(newPos));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
@@ -185,9 +195,10 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     {
         float3 seedPos = newPos.xyz / (float)numBladesPerVert * 0.2f;
         newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seedPos);
+        newPos += GetWindOffset();
         float angle = GetBladeAngle(seedPos);
         float2 size = GetBladeSize(seedPos);
-        size = GetBladeSizeLOD(TransformToWorldSpace(newPos), size);
+        size.x = GetBladeSizeLOD(TransformToWorldSpace(newPos), size).x;
         //todo check if size is 0 and then just dont append. how?
         
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
@@ -201,7 +212,6 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
             drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v));
         }
         drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1));
-        
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
             AppendTriangle(drawVertices, k, normal);
         }
