@@ -50,7 +50,7 @@ float _OriginDisplacement;
 
 //Camera LOD
 float3 _CameraLOD;
-float4 _CameraPos;
+float4 _ObjPos;
 
 //Wind
 half _WindSpeed;
@@ -126,7 +126,7 @@ float2 GetBladeSize(float3 seed) {
 }
 
 float2 GetBladeSizeLOD(float3 positionWS, float2 size) {
-    float d = distance(positionWS, _CameraPos.xyz);
+    float d = distance(positionWS, _ObjPos.xyz);
     d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
     d = pow(abs(d), _CameraLOD.z);
     return min(size, max(0.0f, d * size));
@@ -160,7 +160,7 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
 }
 
 int GetSegments(float3 positionWS) {
-    float d = distance(positionWS, _CameraPos.xyz);
+    float d = distance(positionWS, _ObjPos.xyz);
     d = 1 - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
     d = pow(d, _CameraLOD.z);
     return min(MAX_GRASS_SEGMENTS, max(1, ceil(d * _SegmentsPerBlade)));
@@ -185,7 +185,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     float3 newPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     
     int numBladesPerVert = _BladesPerVertex;
-    int numSegmentsPerBlade = min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade)); //GetSegments(TransformToWorldSpace(newPos));
+    int numSegmentsPerBlade =  min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade)); //GetSegments(TransformToWorldSpace(newPos));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
@@ -195,10 +195,10 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     {
         float3 seedPos = newPos.xyz / (float)numBladesPerVert * 0.2f;
         newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seedPos);
-        newPos += GetWindOffset();
+        //newPos += GetWindOffset();
         float angle = GetBladeAngle(seedPos);
         float2 size = GetBladeSize(seedPos);
-        size.x = GetBladeSizeLOD(TransformToWorldSpace(newPos), size).x;
+        //size.x = GetBladeSizeLOD(TransformToWorldSpace(newPos), size).x;
         //todo check if size is 0 and then just dont append. how?
         
         for (int i = 0; i < numSegmentsPerBlade; ++i) {

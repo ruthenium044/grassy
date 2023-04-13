@@ -105,6 +105,8 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
         
         instantiatedComputeShader.SetVector("_CameraLOD", new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
+        Debug.Log(new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
+        
         instantiatedComputeShader.SetFloat("_WindSpeed", 0.0001f);
         instantiatedComputeShader.SetFloat("_WindStrength", 0.001f);
 
@@ -114,6 +116,7 @@ public class CompteShaderTest : MonoBehaviour
         // Then, divide the number of triangles by that size
         instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
+        Debug.Log(dispatchSize);
 
         localBounds = grassData.sourceMesh.bounds;
         localBounds.Expand(1);
@@ -154,10 +157,13 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
         instantiatedComputeShader.SetFloat("_Time", Time.time);
         instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
-        instantiatedComputeShader.SetVector("_CameraPos", obj.position);
-        
+        instantiatedComputeShader.SetVector("_ObjPos", obj.position);
+
         instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
   
+        //command buffer for dispatch
+        //to make sure the buffer is not being writen to randomly
+        
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
      
