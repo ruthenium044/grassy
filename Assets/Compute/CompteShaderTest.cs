@@ -6,6 +6,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using Unity.Mathematics;
 using UnityEditor;
+using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
 [ExecuteInEditMode]
@@ -22,6 +23,9 @@ public class CompteShaderTest : MonoBehaviour
     }
     
     private bool initialized;
+
+    private CommandBuffer cmdMain;
+    
     private ComputeBuffer sourceVertBuffer;
     private ComputeBuffer sourceTriBuffer;
     private ComputeBuffer drawBuffer;
@@ -52,6 +56,7 @@ public class CompteShaderTest : MonoBehaviour
         }
         initialized = true;
 
+        cmdMain = new CommandBuffer();
         instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
         instantiatedMaterial = Instantiate(grassData.material);
         
@@ -154,16 +159,20 @@ public class CompteShaderTest : MonoBehaviour
 
         Bounds bounds = TransformBounds(localBounds);
 
+        //cmdMain.SetComputeMatrixParam(instantiatedComputeShader, "_LocalToWorld", transform.localToWorldMatrix);
+        //cmdMain.SetComputeFloatParam(instantiatedComputeShader, "_Time", Time.time);
+        //cmdMain.SetComputeFloatParam(instantiatedComputeShader, "_Height", grassData.grassHeight);
+        //cmdMain.SetComputeVectorParam(instantiatedComputeShader, "_ObjPos", obj.position);
+        //cmdMain.DispatchCompute(instantiatedComputeShader, idKarnel, dispatchSize, 1, 1);
+        
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
         instantiatedComputeShader.SetFloat("_Time", Time.time);
         instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
         instantiatedComputeShader.SetVector("_ObjPos", obj.position);
-
         instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
-  
+        
         //command buffer for dispatch
         //to make sure the buffer is not being writen to randomly
-        
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
      
