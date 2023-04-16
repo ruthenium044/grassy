@@ -25,6 +25,8 @@ public class CompteShaderTest : MonoBehaviour
     private bool initialized;
 
     private CommandBuffer cmdMain;
+    private CommandBuffer cmdPresent;
+    private GraphicsFence presentFence;
     
     private ComputeBuffer sourceVertBuffer;
     private ComputeBuffer sourceTriBuffer;
@@ -55,8 +57,10 @@ public class CompteShaderTest : MonoBehaviour
             OnDisable();
         }
         initialized = true;
+        
+        cmdMain = new();
+        cmdMain.name = "Prepare Grass";
 
-        cmdMain = new CommandBuffer();
         instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
         instantiatedMaterial = Instantiate(grassData.material);
         
@@ -110,8 +114,7 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
         
         instantiatedComputeShader.SetVector("_CameraLOD", new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
-        Debug.Log(new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
-        
+
         instantiatedComputeShader.SetFloat("_WindSpeed", 0.0001f);
         instantiatedComputeShader.SetFloat("_WindStrength", 0.001f);
 
@@ -121,10 +124,14 @@ public class CompteShaderTest : MonoBehaviour
         // Then, divide the number of triangles by that size
         instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
-        Debug.Log(dispatchSize);
 
         localBounds = grassData.sourceMesh.bounds;
         localBounds.Expand(1);
+        
+        cmdMain.SetBufferCounterValue(drawBuffer, 0);
+        cmdMain.SetBufferData(argsBuffer, new int[] { 0, 1, 0, 0 });
+        cmdMain.DispatchCompute(instantiatedComputeShader, idKarnel, dispatchSize, 1, 1);
+        //cmdMain.DrawProceduralIndirect(transform.localToWorldMatrix, instantiatedMaterial, -1, MeshTopology.Triangles, argsBuffer);
      }
 
     private void OnDisable() {
@@ -144,6 +151,7 @@ public class CompteShaderTest : MonoBehaviour
             sourceTriBuffer.Release();
             drawBuffer.Release();
             argsBuffer.Release();
+            cmdMain.Release();
         }
         initialized = false;
     }
@@ -154,28 +162,19 @@ public class CompteShaderTest : MonoBehaviour
             OnDisable();
             OnEnable();
         }
-        drawBuffer.SetCounterValue(0);
-        argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
-
         Bounds bounds = TransformBounds(localBounds);
+        //instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
 
-        //cmdMain.SetComputeMatrixParam(instantiatedComputeShader, "_LocalToWorld", transform.localToWorldMatrix);
-        //cmdMain.SetComputeFloatParam(instantiatedComputeShader, "_Time", Time.time);
-        //cmdMain.SetComputeFloatParam(instantiatedComputeShader, "_Height", grassData.grassHeight);
-        //cmdMain.SetComputeVectorParam(instantiatedComputeShader, "_ObjPos", obj.position);
-        //cmdMain.DispatchCompute(instantiatedComputeShader, idKarnel, dispatchSize, 1, 1);
-        
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
         instantiatedComputeShader.SetFloat("_Time", Time.time);
         instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
         instantiatedComputeShader.SetVector("_ObjPos", obj.position);
-        instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
-        
-        //command buffer for dispatch
-        //to make sure the buffer is not being writen to randomly
+
+        Graphics.ExecuteCommandBuffer(cmdMain);
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
-     
+
+
     // This applies the game object's transform to the local bounds
     // Code by benblo from https://answers.unity.com/questions/361275/cant-convert-bounds-from-world-coordinates-to-loca.html
     public Bounds TransformBounds(Bounds boundsOS) {

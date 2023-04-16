@@ -66,7 +66,7 @@ float customRand (float2 st, float seed) {
 }
 // 2D Noise based on Morgan McGuire @morgan3d
 // https://www.shadertoy.com/view/4dS3Wd
-float noise (float2 st, float seed) {
+float noise (float2 st, float seed) {                                 
     float2 i = floor(st);
     float2 f = frac(st);
     // Four corners in 2D of a tile
@@ -92,9 +92,9 @@ float3x3 AxisAngleRotation(float angle, float3 axis) {
 }
 
 //https://stackoverflow.com/questions/19654251/random-point-inside-triangle-inside-java
-float3 GetTrianglePoint(float3 a, float3 b, float3 c, float3 seed) {
-    float r1 = sqrt(noise(seed.xz, seed.x));
-    float r2 = noise(seed.xz, seed.z);
+float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
+    float r1 = sqrt(customRand(a.xz, seed));
+    float r2 = customRand(c.xz, seed);
     float3 pt = (1.0f - r1) * a + (r1 * (1.0f - r2)) * b + (r1 * r2) * c;
     return pt;
 }
@@ -120,12 +120,12 @@ float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
 
 float2 GetBladeSize(float3 seed) {
     float2 size;
-    size.x = customRand(seed.xz, seed.x) * _GrassWidthFactor + _GrassWidth;
-    size.y = customRand(seed.xz, seed.z) * _GrassHeightFactor + _GrassHeight;
+    size.x = customRand(seed.xz, 1) * _GrassWidthFactor + _GrassWidth;
+    size.y = customRand(seed.xz, 1) * _GrassHeightFactor + _GrassHeight;
     return size;
 }
 
-float2 GetBladeSizeLOD(float3 positionWS, float2 size) {
+float2 GetBladeSizeFaded(float3 positionWS, float2 size) {
     float d = distance(positionWS, _ObjPos.xyz);
     d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
     d = pow(abs(d), _CameraLOD.z);
@@ -182,10 +182,10 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     inputs[0] = _SourceVertices[_SourceTriangles[triStart]];
     inputs[1] = _SourceVertices[_SourceTriangles[triStart + 1]];
     inputs[2] = _SourceVertices[_SourceTriangles[triStart + 2]];
-    float3 newPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     
+    float3 centerPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     int numBladesPerVert = _BladesPerVertex;
-    int numSegmentsPerBlade =  min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade)); //GetSegments(TransformToWorldSpace(newPos));
+    int numSegmentsPerBlade =  GetSegments(TransformToWorldSpace(centerPos));//min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
@@ -193,25 +193,12 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float3 seedPos;
-        if (numBladesPerVert == 0) {
-            
-            seedPos = (float3)1;
-        }
-        else {
-            seedPos = (newPos.xyz / (float)numBladesPerVert) * 0.2f;
-        }
-        //seedPos.x /= div;
-        //seedPos.y /= div;
-        //seedPos.z /= div;
-        
-        newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seedPos);
+        float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, id.x + j);
         
         //newPos += GetWindOffset();
-        float angle = GetBladeAngle(seedPos);
-        float2 size = GetBladeSize(seedPos);
-        //size.x = GetBladeSizeLOD(TransformToWorldSpace(newPos), size).x;
-        //todo check if size is 0 and then just dont append. how?
+        float angle = GetBladeAngle(newPos);
+        float2 size = GetBladeSize(newPos);
+        //size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
         
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;

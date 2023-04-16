@@ -63,7 +63,6 @@ Shader "Custom/SimpleGrassLit" {
         #else
             float t = smoothstep(_FadeAmount - _FadeSize, _FadeAmount + _FadeSize, input.uv.y);
             float fade = lerp(0.0f, 1.0f, t);
-            float _Cutoff = 0.5;
             
             t =  input.uv.y;
             float4 col = lerp(_BaseColor, _TopColor, t);
