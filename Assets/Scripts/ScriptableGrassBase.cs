@@ -15,14 +15,21 @@ public class ScriptableGrassBase : ScriptableObject
     
     [Header("Blade Size")]
     [SerializeField] internal float grassHeight = 1;
-    [SerializeField] internal float grassWidth = 0.2f;
     [SerializeField] internal float grassHeightFactor = 1;
+    [SerializeField] internal float grassWidth = 0.2f;
     [SerializeField] internal float grassWidthFactor = 0.2f;
 
     [Header("Blade Shape")]
     [SerializeField] [Range(0, 1)] internal float bladeForwardAmount = 0.38f;
-    [SerializeField] [Range(1, 5)] internal float bladeCurveAmount = 2;
+    [SerializeField] [Range(1, 15)] internal float bladeCurveAmount = 2;
     [SerializeField] [Range(0, 0.5f)] internal float bladeOriginDisplacement = 0.38f;
+
+    [Header("Wind")] 
+    [SerializeField] internal float windSpeed = 5.0f;
+    [SerializeField] [Range(0, 0.1f)] internal float windStrength = 0.01f;
+
+    [Header("Interaction")] 
+    [SerializeField] internal float displacementRadius;
     
     [Header("Distance LOD")]
     [SerializeField] internal float minLOD = 3;

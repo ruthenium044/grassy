@@ -113,10 +113,10 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, grassData.bladeCurveAmount));
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
         
-        instantiatedComputeShader.SetVector("_CameraLOD", new Vector4(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD), 0));
-
-        instantiatedComputeShader.SetFloat("_WindSpeed", 0.0001f);
-        instantiatedComputeShader.SetFloat("_WindStrength", 0.001f);
+        instantiatedComputeShader.SetVector("_CameraLOD", new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
+        instantiatedComputeShader.SetFloat("_WindSpeed", grassData.windSpeed);
+        instantiatedComputeShader.SetFloat("_WindStrength", grassData.windStrength);
+        instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
 
         instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
 

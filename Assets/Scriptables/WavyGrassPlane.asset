@@ -19,12 +19,15 @@ MonoBehaviour:
   bladeSegments: 5
   bladesPerVertex: 20
   grassHeight: 1
-  grassWidth: 0.2
   grassHeightFactor: 1
+  grassWidth: 0.2
   grassWidthFactor: 0.2
   bladeForwardAmount: 0.38
   bladeCurveAmount: 4
   bladeOriginDisplacement: 0.38
+  windSpeed: 5
+  windStrength: 0.01
+  displacementRadius: 0.6
   minLOD: 3
   maxLOD: 9
   factorLOD: 1

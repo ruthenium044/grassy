@@ -55,6 +55,7 @@ float4 _ObjPos;
 //Wind
 half _WindSpeed;
 float _WindStrength;
+float _DisplacementRadius;
 
 #define PI 3.14159265358979323846
 #define MAX_GRASS_SEGMENTS 10  // segments per blade allowed
@@ -104,11 +105,6 @@ float3 TransformToWorldSpace(float3 v) {
 }
 
 float3 GetTriangleNormal(float3 a, float3 b, float3 c) {
-    // The tangent, or X direction, points from a to b
-    //float3 tangentWS = normalize(b - a);
-    // The normal, or Z direction, is perpendicular to the lines formed by the triangle points
-    //return normalize(cross(tangentWS, c - a));
-    
     float3 u = b - a;
     float3 v = c - a;
     return cross(u, v);
@@ -118,29 +114,39 @@ float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
     return (a + b + c) / 3.0f;
 }
 
-float2 GetBladeSize(float3 seed) {
+float2 GetBladeSize(float3 pos, float seed) {
     float2 size;
-    size.x = customRand(seed.xz, 1) * _GrassWidthFactor + _GrassWidth;
-    size.y = customRand(seed.xz, 1) * _GrassHeightFactor + _GrassHeight;
+    size.x = customRand(pos.xz, seed) * _GrassWidthFactor + _GrassWidth;
+    size.y = customRand(pos.xz, seed) * _GrassHeightFactor + _GrassHeight;
     return size;
 }
 
 float2 GetBladeSizeFaded(float3 positionWS, float2 size) {
-    float d = distance(positionWS, _ObjPos.xyz);
-    d = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
-    d = pow(abs(d), _CameraLOD.z);
-    return min(size, max(0.0f, d * size));
+    float dist = distance(positionWS, _ObjPos.xyz);
+    dist = 1.0f - smoothstep(_CameraLOD.x, _CameraLOD.y, dist);
+    dist = pow(abs(dist), _CameraLOD.z);
+    return min(size, max(0.0f, dist * size));
 }
 
-float GetBladeAngle(float3 seed) {
-    return customRand(seed.xz, seed.x) * PI * 2.0f;
+float GetBladeAngle(float3 pos, float seed) {
+    return customRand(pos.xz, seed) * PI * 2.0f;
+}
+
+float3 GetWindOffset(float3 pos) {
+    float x = sin(_WindSpeed * _Time.x + pos.x) + sin(_WindSpeed * _Time.x + pos.x * 2) + sin(_WindSpeed * _Time.x * 0.1f + pos.x);
+    float y = cos(_WindSpeed * _Time.x + pos.z);
+    float z = cos(_WindSpeed * _Time.x + pos.z) + cos(_WindSpeed * _Time.x + pos.z * 2);
+    return float3(x * _WindStrength, y * _WindStrength, z * _WindStrength);
 }
 
 DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv) {
     DrawVertex output;
     const float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
-    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
     
+    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
+    float3 windOffset = GetWindOffset(newPos);
+   
+    newPos += windOffset * uv.y;
     newPos = positionOS + mul(rotationMatrix, newPos);
     output.positionWS = TransformToWorldSpace(newPos);
     output.uv = uv;
@@ -160,16 +166,18 @@ void AppendTriangle(DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE], int k, fl
 }
 
 int GetSegments(float3 positionWS) {
-    float d = distance(positionWS, _ObjPos.xyz);
-    d = 1 - smoothstep(_CameraLOD.x, _CameraLOD.y, d);
-    d = pow(d, _CameraLOD.z);
-    return min(MAX_GRASS_SEGMENTS, max(1, ceil(d * _SegmentsPerBlade)));
+    float dist = distance(positionWS, _ObjPos.xyz);
+    dist = 1 - smoothstep(_CameraLOD.x, _CameraLOD.y, dist);
+    dist = pow(abs(dist), _CameraLOD.z);
+    return min(MAX_GRASS_SEGMENTS, max(0, ceil(dist * _SegmentsPerBlade)));
 }
 
-float3 GetWindOffset() {
-    float speed = 7.0f;
-    float frequnecy = 0.01f;
-    return float3(sin(speed * _Time.x) * frequnecy, 0.0, 0.0);
+float3 GetObjectOffset(float3 pos) {
+    float3 dist = distance(_ObjPos.xyz, pos);
+    float3 circle = max(0, 1 - saturate(dist / _DisplacementRadius));
+    float3 sphereDisplacement = pos - _ObjPos.xyz;
+    sphereDisplacement *= circle;
+    return sphereDisplacement;
 }
 
 [numthreads(128,1,1)]
@@ -185,7 +193,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     float3 centerPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     int numBladesPerVert = _BladesPerVertex;
-    int numSegmentsPerBlade =  GetSegments(TransformToWorldSpace(centerPos));//min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
+    int numSegmentsPerBlade = GetSegments(TransformToWorldSpace(centerPos)); //min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
@@ -193,20 +201,21 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     for (int j = 0; j < numBladesPerVert; ++j)
     {
-        float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, id.x + j);
+        float seed = id.x + j;
+        float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seed);
         
-        //newPos += GetWindOffset();
-        float angle = GetBladeAngle(newPos);
-        float2 size = GetBladeSize(newPos);
-        //size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
-        
+        float angle = GetBladeAngle(newPos, seed);
+        float2 size = GetBladeSize(newPos, seed);
+        size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
+
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * 0.5f;
-
+            
+            newPos += GetObjectOffset(TransformToWorldSpace(newPos));
             if (v == 0) { u += _OriginDisplacement; }
             float segmentForward = pow(abs(v), _BladeCurve) * _BladeForward;
-     
+            
             drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v));
             drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v));
         }
@@ -218,7 +227,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     // counts the number of vertices, storing it in the indirect arguments
     // This tells the renderer how many vertices are in the mesh in DrawProcedural
-    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, numTrianglesPerBlade * 3 * numBladesPerVert);
+    InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, max(0, numTrianglesPerBlade) * 3 * numBladesPerVert);
 }
 
 
