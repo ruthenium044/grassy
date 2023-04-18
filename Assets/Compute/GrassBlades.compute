@@ -139,15 +139,33 @@ float3 GetWindOffset(float3 pos) {
     return float3(x * _WindStrength, y * _WindStrength, z * _WindStrength);
 }
 
-DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv) {
+float3 GetWindAxis(float3 positionWS, float3 normalWS) {
+    // Calculate the wind axis which also encodes the wind strength
+    // The windUV is affected by the position's XZ world position and the time since scene load (_Time.y)
+    float2 windUV = positionWS.xz * _WindStrength + _Time.x * _WindSpeed;
+
+    // Sample the wind noise texture and remap to range between -1 and 1
+    float2 windNoise = noise(windUV, 1) * 2 - 1;
+    // We want to grass to blow by rotating in a direction perpendicular to it's normal
+    // cross will find one such vector. Since windNoise is not normalized, it also encodes some strength
+    return cross(normalWS, float3(windNoise.x, 0, windNoise.y));
+}
+
+DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
     DrawVertex output;
-    const float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
     
     float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
-    float3 windOffset = GetWindOffset(newPos);
-   
-    newPos += windOffset * uv.y;
-    newPos = positionOS + mul(rotationMatrix, newPos);
+    //float3 windOffset = GetWindOffset(newPos);
+    //newPos += windOffset * uv.y;
+    
+    float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
+    float3x3 windMatrix = AxisAngleRotation(uv.y * 0.4, windAxis);
+    //rotationMatrix *= windMatrix;
+
+    float3x3 transform = windMatrix;
+    
+    newPos = positionOS + mul(transform, newPos);
+    
     output.positionWS = TransformToWorldSpace(newPos);
     output.uv = uv;
     return output;
@@ -208,6 +226,8 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         float2 size = GetBladeSize(newPos, seed);
         size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
 
+        float3 windAxis = GetWindAxis(TransformToWorldSpace(newPos), normal);
+        
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * 0.5f;
@@ -216,10 +236,10 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
             if (v == 0) { u += _OriginDisplacement; }
             float segmentForward = pow(abs(v), _BladeCurve) * _BladeForward;
             
-            drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v));
-            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v));
+            drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v), windAxis);
+            drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v), windAxis);
         }
-        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1));
+        drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1), windAxis);
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
             AppendTriangle(drawVertices, k, normal);
         }

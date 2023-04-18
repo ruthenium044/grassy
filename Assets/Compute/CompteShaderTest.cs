@@ -171,6 +171,7 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetVector("_ObjPos", obj.position);
 
         Graphics.ExecuteCommandBuffer(cmdMain);
+        //cmdMain.DrawProceduralIndirect();
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
 

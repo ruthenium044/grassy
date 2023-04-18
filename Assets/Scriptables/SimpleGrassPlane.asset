@@ -21,11 +21,11 @@ MonoBehaviour:
   grassHeightFactor: 0.5
   grassWidth: 0.1
   grassWidthFactor: 0.05
-  bladeForwardAmount: 0.226
+  bladeForwardAmount: 0.324
   bladeCurveAmount: 3
   bladeOriginDisplacement: 0.338
-  windSpeed: 2
-  windStrength: 0.0384
+  windSpeed: 0.5
+  windStrength: 0.1
   displacementRadius: 0.6
   minLOD: 7
   maxLOD: 10

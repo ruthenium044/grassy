@@ -15,8 +15,8 @@ MonoBehaviour:
   sourceMesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
-  bladeSegments: 5
-  bladesPerVertex: 26
+  bladeSegments: 3
+  bladesPerVertex: 44
   grassHeight: 1
   grassHeightFactor: 0
   grassWidth: 0.2
@@ -24,8 +24,8 @@ MonoBehaviour:
   bladeForwardAmount: 0
   bladeCurveAmount: 1
   bladeOriginDisplacement: 0.38
-  windSpeed: 5
-  windStrength: 0.01
+  windSpeed: 0.5
+  windStrength: 0.1
   displacementRadius: 0.6
   minLOD: 3
   maxLOD: 20
