@@ -12,20 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2df7b10700ffa154e8b85e1b44dc05d3, type: 3}
   m_Name: StraightGrass
   m_EditorClassIdentifier: 
-  sourceMesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  sourceMesh: {fileID: 0}
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   bladeSegments: 3
   bladesPerVertex: 10
-  grassHeight: 0.7
+  topColor: {r: 1, g: 1, b: 1, a: 1}
+  bottomColor: {r: 0, g: 0, b: 1, a: 1}
+  grassHeight: 1
   grassHeightFactor: 0
-  grassWidth: 0.25
+  grassWidth: 0.2
   grassWidthFactor: 0
   bladeForwardAmount: 0
   bladeCurveAmount: 1
-  bladeOriginDisplacement: 0.38
-  windSpeed: 0.1
-  windStrength: 0.1
+  bladeOriginDisplacement: 0.336
+  windSpeed: 2
+  windScale: 0.2
+  windBendStrength: 0.2
   displacementRadius: 0.6
   minLOD: 3
   maxLOD: 20

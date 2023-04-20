@@ -7,11 +7,14 @@ using UnityEngine;
 public class ScriptableGrassBase : ScriptableObject
 {
     [Header("General Settings")]
-    [SerializeField] internal Mesh sourceMesh = default;
     [SerializeField] internal ComputeShader grassComputeShader = default;
     [SerializeField] internal Material material = default;
     [SerializeField] [Range(1, 10)] internal int bladeSegments = 5;
     [SerializeField] [Range(1, 100)] internal int bladesPerVertex = 20;
+    
+    [Header("Material")]
+    [SerializeField] internal Color topColor = new Color(1, 1, 1);
+    [SerializeField] internal Color bottomColor = new Color(0, 0, 1);
     
     [Header("Blade Size")]
     [SerializeField] internal float grassHeight = 1;
@@ -26,7 +29,8 @@ public class ScriptableGrassBase : ScriptableObject
 
     [Header("Wind")] 
     [SerializeField] internal float windSpeed = 5.0f;
-    [SerializeField] [Range(0, 0.1f)] internal float windStrength = 0.01f;
+    [SerializeField] internal float windScale = 2.0f;
+    [SerializeField] [Range(0, 1.0f)] internal float windBendStrength = 0.2f;
 
     [Header("Interaction")] 
     [SerializeField] internal float displacementRadius;

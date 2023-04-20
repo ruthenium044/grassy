@@ -17,16 +17,19 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   bladeSegments: 8
   bladesPerVertex: 8
-  grassHeight: 0.7
+  topColor: {r: 1, g: 1, b: 1, a: 1}
+  bottomColor: {r: 0, g: 0, b: 1, a: 1}
+  grassHeight: 1
   grassHeightFactor: 0
   grassWidth: 0.2
   grassWidthFactor: 0
-  bladeForwardAmount: 0.325
-  bladeCurveAmount: 5.66
+  bladeForwardAmount: 0.129
+  bladeCurveAmount: 3.82
   bladeOriginDisplacement: 0.338
-  windSpeed: 0.2
-  windStrength: 0.1
+  windSpeed: 2
+  windScale: 0.2
+  windBendStrength: 0.2
   displacementRadius: 0.6
-  minLOD: 7
-  maxLOD: 10
+  minLOD: 10
+  maxLOD: 12
   factorLOD: 5

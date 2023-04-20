@@ -9,17 +9,19 @@ using UnityEditor;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
-[ExecuteInEditMode]
+//[ExecuteInEditMode]
 public class CompteShaderTest : MonoBehaviour
 {
     [SerializeField] private ScriptableGrassBase grassData;
-    [SerializeField] internal Transform obj;
+    [SerializeField] private Transform obj;
+    private Mesh sourceMesh = default;
     
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct SourceVertex {
         public Vector3 position;
         public Vector3 normal;
         public Vector2 uv;
+        public Vector3 color;
     }
     
     private bool initialized;
@@ -43,12 +45,14 @@ public class CompteShaderTest : MonoBehaviour
 
     private static readonly int SOURCE_VERT_STRIDE = UnsafeUtility.SizeOf<SourceVertex>();
     private const int SOURCE_TRI_STRIDE = sizeof(int);
-    private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2) * 3);
+    private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2 + 3) * 3);
     private const int ARGS_STRIDE = sizeof(int) * 4;
 
-     private void OnEnable() {
-         //Should be assert or not?
-         if (grassData.grassComputeShader == null || grassData.sourceMesh == null)
+     private void OnEnable()
+     {
+         sourceMesh = GetComponent<MeshFilter>().mesh;
+         
+         if (grassData.grassComputeShader == null || sourceMesh == null)
          {
              return;
          }
@@ -64,19 +68,22 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
         instantiatedMaterial = Instantiate(grassData.material);
         
-        Vector3[] positions = grassData.sourceMesh.vertices;
-        Vector3[] normals = grassData.sourceMesh.normals;
-        Vector2[] uvs = grassData.sourceMesh.uv;
-        int[] tris = grassData.sourceMesh.triangles;
+        Vector3[] positions = sourceMesh.vertices;
+        Vector3[] normals = sourceMesh.normals;
+        Vector2[] uvs = sourceMesh.uv;
+        int[] tris = sourceMesh.triangles;
         SourceVertex[] vertices = new SourceVertex[positions.Length];
+        Color[] colors = new Color[vertices.Length];
 
         Bounds bounds = new Bounds();
         
         for(int i = 0; i < vertices.Length; i++) {
+            Color color = colors[i];
             vertices[i] = new SourceVertex() {
                 position = positions[i],
                 normal = normals[i],
-                uv = uvs[i]
+                uv = uvs[i],
+                color = new Vector3(color.r, color.g, color.b)
             };
             bounds.Encapsulate(positions[i]);
         }
@@ -114,10 +121,11 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
         
         instantiatedComputeShader.SetVector("_CameraLOD", new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
-        instantiatedComputeShader.SetFloat("_WindSpeed", grassData.windSpeed);
-        instantiatedComputeShader.SetFloat("_WindStrength", grassData.windStrength);
         instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
-
+        
+        //todo do the rest of settings here too!
+        instantiatedMaterial.SetColor("_TopColor", grassData.topColor);
+        instantiatedMaterial.SetColor("_BaseColor", grassData.bottomColor);
         instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
 
         // Calculate the number of threads to use. Get the thread size from the kernel
@@ -125,7 +133,7 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
         dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
 
-        localBounds = grassData.sourceMesh.bounds;
+        localBounds = sourceMesh.bounds;
         localBounds.Expand(1);
         
         cmdMain.SetBufferCounterValue(drawBuffer, 0);
@@ -165,6 +173,10 @@ public class CompteShaderTest : MonoBehaviour
         Bounds bounds = TransformBounds(localBounds);
         //instantiatedComputeShader.Dispatch(idKarnel, dispatchSize, 1, 1);
 
+        instantiatedComputeShader.SetFloat("_WindSpeed", grassData.windSpeed);
+        instantiatedComputeShader.SetFloat("_WindScale", grassData.windScale);
+        instantiatedComputeShader.SetFloat("_WindBendStrength", grassData.windBendStrength);
+        
         instantiatedComputeShader.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
         instantiatedComputeShader.SetFloat("_Time", Time.time);
         instantiatedComputeShader.SetFloat("_Height", grassData.grassHeight);
