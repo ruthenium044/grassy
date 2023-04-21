@@ -1,13 +1,6 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.VisualScripting;
 using UnityEngine;
-using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
 //[ExecuteInEditMode]
 public class CompteShaderTest : MonoBehaviour
@@ -23,7 +16,6 @@ public class CompteShaderTest : MonoBehaviour
         public Vector2 uv;
         public Vector3 color;
     }
-    
     private bool initialized;
 
     private CommandBuffer cmdMain;
@@ -47,60 +39,68 @@ public class CompteShaderTest : MonoBehaviour
     private const int SOURCE_TRI_STRIDE = sizeof(int);
     private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2 + 3) * 3);
     private const int ARGS_STRIDE = sizeof(int) * 4;
+    
+    private static readonly int DrawTriangles = Shader.PropertyToID("_DrawTriangles");
+    private static readonly int MainTex = Shader.PropertyToID("_MainTex");
+    private static readonly int TopColor = Shader.PropertyToID("_TopColor");
+    private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+    private static readonly int FadeAmount = Shader.PropertyToID("_FadeAmount");
+    private static readonly int FadeSize = Shader.PropertyToID("_FadeSize");
 
-     private void OnEnable()
-     {
-         sourceMesh = GetComponent<MeshFilter>().mesh;
-         
-         if (grassData.grassComputeShader == null || sourceMesh == null)
-         {
-             return;
-         }
-         
-         if(initialized) {
-            OnDisable();
-        }
-        initialized = true;
+    private void OnEnable()
+    {
+        sourceMesh = GetComponent<MeshFilter>().mesh;
         
+        if (initialized) { OnDisable(); }
+        if (grassData.grassComputeShader == null || sourceMesh == null || grassData.material == null) { return; }
+        if (sourceMesh.vertexCount == 0) { return; }
+        
+        initialized = true;
+
         cmdMain = new();
         cmdMain.name = "Prepare Grass";
-
+        
         instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
         instantiatedMaterial = Instantiate(grassData.material);
-        
+
         Vector3[] positions = sourceMesh.vertices;
         Vector3[] normals = sourceMesh.normals;
         Vector2[] uvs = sourceMesh.uv;
         int[] tris = sourceMesh.triangles;
         SourceVertex[] vertices = new SourceVertex[positions.Length];
-        Color[] colors = new Color[vertices.Length];
+        Material meshMaterial = GetComponent<Renderer>().material;
 
         Bounds bounds = new Bounds();
-        
-        for(int i = 0; i < vertices.Length; i++) {
-            Color color = colors[i];
-            vertices[i] = new SourceVertex() {
+
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            vertices[i] = new SourceVertex()
+            {
                 position = positions[i],
                 normal = normals[i],
                 uv = uvs[i],
-                color = new Vector3(color.r, color.g, color.b)
+                color = new Vector3(meshMaterial.color.r, meshMaterial.color.g, meshMaterial.color.b)
             };
             bounds.Encapsulate(positions[i]);
         }
+
         int numTriangles = tris.Length / 3;
         int maxBladeTriangles = (grassData.bladeSegments - 1) * 2 + 1;
 
-        sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
+        sourceVertBuffer = new ComputeBuffer(vertices.Length, SOURCE_VERT_STRIDE, ComputeBufferType.Structured,
+            ComputeBufferMode.Immutable);
         sourceVertBuffer.SetData(vertices);
-        sourceTriBuffer = new ComputeBuffer(tris.Length, SOURCE_TRI_STRIDE, ComputeBufferType.Structured, ComputeBufferMode.Immutable);
+        sourceTriBuffer = new ComputeBuffer(tris.Length, SOURCE_TRI_STRIDE, ComputeBufferType.Structured,
+            ComputeBufferMode.Immutable);
         sourceTriBuffer.SetData(tris);
-        drawBuffer = new ComputeBuffer(numTriangles * 3 * grassData.bladesPerVertex * maxBladeTriangles, DRAW_STRIDE, ComputeBufferType.Append);
+        drawBuffer = new ComputeBuffer(numTriangles * 3 * grassData.bladesPerVertex * maxBladeTriangles, DRAW_STRIDE,
+            ComputeBufferType.Append);
         drawBuffer.SetCounterValue(0);
         argsBuffer = new ComputeBuffer(1, ARGS_STRIDE, ComputeBufferType.IndirectArguments);
-        argsBuffer.SetData(new int[] { 0, 1, 0, 0 });
+        argsBuffer.SetData(new int[] {0, 1, 0, 0});
 
         idKarnel = instantiatedComputeShader.FindKernel("CSMain");
-       
+
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
@@ -108,51 +108,56 @@ public class CompteShaderTest : MonoBehaviour
 
         //set vertex data
         instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
-        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1,grassData.bladeSegments));
+        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1, grassData.bladeSegments));
         instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, grassData.bladesPerVertex));
-        
+
         instantiatedComputeShader.SetFloat("_GrassHeight", grassData.grassHeight);
         instantiatedComputeShader.SetFloat("_GrassWidth", grassData.grassWidth);
         instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassData.grassHeightFactor);
         instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassData.grassWidthFactor);
-        
+
         instantiatedComputeShader.SetFloat("_BladeForward", grassData.bladeForwardAmount);
         instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, grassData.bladeCurveAmount));
         instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
-        
-        instantiatedComputeShader.SetVector("_CameraLOD", new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
+
+        instantiatedComputeShader.SetVector("_CameraLOD",
+            new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
         instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
-        
+
         //todo do the rest of settings here too!
-        instantiatedMaterial.SetColor("_TopColor", grassData.topColor);
-        instantiatedMaterial.SetColor("_BaseColor", grassData.bottomColor);
-        instantiatedMaterial.SetBuffer("_DrawTriangles", drawBuffer);
+        instantiatedMaterial.SetBuffer(DrawTriangles, drawBuffer);
+        
+        instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
+        instantiatedMaterial.SetColor(TopColor, grassData.topColor);
+        instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
+        instantiatedMaterial.SetFloat(FadeAmount, grassData.fadeAmount);
+        instantiatedMaterial.SetFloat(FadeSize, grassData.fadeSize);
 
         // Calculate the number of threads to use. Get the thread size from the kernel
         // Then, divide the number of triangles by that size
         instantiatedComputeShader.GetKernelThreadGroupSizes(idKarnel, out uint threadGroupSize, out _, out _);
-        dispatchSize = Mathf.CeilToInt((float)numTriangles / threadGroupSize);
+        dispatchSize = Mathf.CeilToInt((float) numTriangles / threadGroupSize);
 
         localBounds = sourceMesh.bounds;
         localBounds.Expand(1);
-        
+
         cmdMain.SetBufferCounterValue(drawBuffer, 0);
-        cmdMain.SetBufferData(argsBuffer, new int[] { 0, 1, 0, 0 });
+        cmdMain.SetBufferData(argsBuffer, new int[] {0, 1, 0, 0});
         cmdMain.DispatchCompute(instantiatedComputeShader, idKarnel, dispatchSize, 1, 1);
         //cmdMain.DrawProceduralIndirect(transform.localToWorldMatrix, instantiatedMaterial, -1, MeshTopology.Triangles, argsBuffer);
-     }
+    }
 
     private void OnDisable() {
         if(initialized) {
             if (Application.isPlaying)
             {
                 Destroy(instantiatedComputeShader);
-                Destroy(instantiatedMaterial);
+               //Destroy(instantiatedMaterial);
             }
             else
             {
                 DestroyImmediate(instantiatedComputeShader);
-                DestroyImmediate(instantiatedMaterial);
+                //DestroyImmediate(instantiatedMaterial);
             }
             
             sourceVertBuffer.Release();

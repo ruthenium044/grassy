@@ -13,8 +13,11 @@ public class ScriptableGrassBase : ScriptableObject
     [SerializeField] [Range(1, 100)] internal int bladesPerVertex = 20;
     
     [Header("Material")]
+    [SerializeField] internal Texture mainTexture = default;
     [SerializeField] internal Color topColor = new Color(1, 1, 1);
     [SerializeField] internal Color bottomColor = new Color(0, 0, 1);
+    [SerializeField] [Range(0, 1.0f)] internal float fadeAmount = 0.5f;
+    [SerializeField] [Range(0, 1.0f)] internal float fadeSize = 0.5f;
     
     [Header("Blade Size")]
     [SerializeField] internal float grassHeight = 1;

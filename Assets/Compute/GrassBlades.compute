@@ -15,7 +15,7 @@ StructuredBuffer<int> _SourceTriangles;
 struct DrawVertex {
     float3 positionWS;
     float2 uv;
-    //float3 diffuseColor;
+    float3 diffuseColor;
 };
 
 struct DrawTriangle {
@@ -160,7 +160,7 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
     float3 final = positionOS + mul(transform, newPos);
     output.positionWS = TransformToWorldSpace(final);
     output.uv = uv;
-    //output.diffuseColor = color;
+    output.diffuseColor = color;
     return output;
 }
 
@@ -220,7 +220,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
 
         float3 windAxis = GetWindAxis(TransformToWorldSpace(newPos), normal);
-        float3 color = float3(1.0, 1.0, 1.0);
+        float3 color = inputs[0].color;
         
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;

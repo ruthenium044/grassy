@@ -3,7 +3,6 @@ Shader "Custom/SimpleGrassLit" {
         _MainTex ("Texture", 2D) = "white" {}
         _TopColor("Top Color", Color) = (1, 1, 1, 1)
         _BaseColor("Base Color", Color) = (1, 1, 1, 1)
-        
         _FadeAmount("Fade Amount", Range(0,1)) = 0.5
         _FadeSize("Fade Size", Range(0,1)) = 0.5
     }
@@ -16,6 +15,7 @@ Shader "Custom/SimpleGrassLit" {
     struct DrawVertex {
         float3 positionWS;
         float2 uv;
+        float3 diffuseColor;
     };
 
     struct DrawTriangle {
@@ -30,13 +30,14 @@ Shader "Custom/SimpleGrassLit" {
         float3 normalWS     : TEXCOORD1;
         float2 uv           : TEXCOORD2;
         float4 positionCS   : SV_POSITION;
+        float3 diffuseColor : COLOR;
     };
     
     TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex); float4 _MainTex_ST;
     
     CBUFFER_START(UnityPerMaterial)
-        half4 _BaseColor;            
-        half4 _TopColor;            
+        half4 _BaseColor;
+        half4 _TopColor;
     CBUFFER_END
     
     float _FadeAmount;
@@ -52,7 +53,7 @@ Shader "Custom/SimpleGrassLit" {
         
         output.normalWS = tri.normalWS;
         output.uv = TRANSFORM_TEX(input.uv, _MainTex);
-
+        output.diffuseColor = input.diffuseColor;
         return output;
     }
             
@@ -65,7 +66,10 @@ Shader "Custom/SimpleGrassLit" {
             float fade = lerp(0.0f, 1.0f, t);
             
             t =  input.uv.y;
-            float4 col = lerp(_BaseColor, _TopColor, t);
+          
+            //return float4(input.diffuseColor.xyz, 1.0f);
+            float4 baseColor = float4(input.diffuseColor.xyz, 1);
+            float4 col = baseColor; //lerp(baseColor, _TopColor, t);
             
             float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
             float3 final = albedo.xyz * col.xyz;
