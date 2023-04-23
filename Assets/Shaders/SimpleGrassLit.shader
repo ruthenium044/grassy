@@ -69,7 +69,7 @@ Shader "Custom/SimpleGrassLit" {
           
             //return float4(input.diffuseColor.xyz, 1.0f);
             float4 baseColor = float4(input.diffuseColor.xyz, 1);
-            float4 col = baseColor; //lerp(baseColor, _TopColor, t);
+            float4 col = lerp(baseColor, _TopColor, t);
             
             float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
             float3 final = albedo.xyz * col.xyz;

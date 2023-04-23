@@ -29,8 +29,8 @@ MonoBehaviour:
   bladeCurveAmount: 3.82
   bladeOriginDisplacement: 0.338
   windSpeed: 2
-  windScale: 0.2
-  windBendStrength: 0.2
+  windScale: 0.5
+  windBendStrength: 0.09
   displacementRadius: 0.6
   minLOD: 10
   maxLOD: 12

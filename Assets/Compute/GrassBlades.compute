@@ -149,15 +149,29 @@ float3 GetWindAxis(float3 positionWS, float3 normalWS) {
     return cross(normalWS, float3(windNoise.x, 0, windNoise.y));
 }
 
-DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis, float3 color) {
-    DrawVertex output;
+float3 GetGrassTransform(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
     float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
     
     float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
     float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
     float3x3 transform = mul(windRotationMatrix, rotationMatrix);
+    return positionOS + mul(transform, newPos);
+}
+
+float3 GetGrassTransformRotationFirst(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
+    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
+
+    float3 windRotation = atan2(windAxis.y, windAxis.x);
+    float3x3 rotationMatrix = AxisAngleRotation(windRotation, float3(0, 1, 0));
+    float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
     
-    float3 final = positionOS + mul(transform, newPos);
+    float3x3 transform = mul(windRotationMatrix, rotationMatrix);
+    return positionOS + mul(transform, newPos);
+}
+
+DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis, float3 color) {
+    DrawVertex output;
+    float3 final = GetGrassTransform(positionOS, curve, size, angle, uv, windAxis);
     output.positionWS = TransformToWorldSpace(final);
     output.uv = uv;
     output.diffuseColor = color;
