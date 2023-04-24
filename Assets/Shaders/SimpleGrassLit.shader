@@ -1,10 +1,12 @@
 Shader "Custom/SimpleGrassLit" {
     Properties {
-        _MainTex ("Texture", 2D) = "white" {}
-        _TopColor("Top Color", Color) = (1, 1, 1, 1)
-        _BaseColor("Base Color", Color) = (1, 1, 1, 1)
-        _FadeAmount("Fade Amount", Range(0,1)) = 0.5
-        _FadeSize("Fade Size", Range(0,1)) = 0.5
+        //_MainTex ("Texture", 2D) = "white" {}
+        //_TopColor("Top Color", Color) = (1, 1, 1, 1)
+        //_BaseColor("Base Color", Color) = (1, 1, 1, 1)
+        //_FadeAmount("Fade Amount", Range(0,1)) = 0.5
+        //_FadeSize("Fade Size", Range(0,1)) = 0.5
+        
+        [Toggle(BLEND)] _BlendFloor("Blend with floor", Float) = 0
     }
     
     HLSLINCLUDE
@@ -15,6 +17,7 @@ Shader "Custom/SimpleGrassLit" {
     struct DrawVertex {
         float3 positionWS;
         float2 uv;
+        float3 baseColor;
         float3 diffuseColor;
     };
 
@@ -30,6 +33,7 @@ Shader "Custom/SimpleGrassLit" {
         float3 normalWS     : TEXCOORD1;
         float2 uv           : TEXCOORD2;
         float4 positionCS   : SV_POSITION;
+        float3 baseColor    : TEXCOORD3;
         float3 diffuseColor : COLOR;
     };
     
@@ -53,26 +57,28 @@ Shader "Custom/SimpleGrassLit" {
         
         output.normalWS = tri.normalWS;
         output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+        output.baseColor = input.baseColor;
         output.diffuseColor = input.diffuseColor;
         return output;
     }
             
     float4 Fragment(Attributes input) : SV_Target {
-
         #ifdef SHADERPASS_SHADOWCASTER
             return 0;
         #else
             float t = smoothstep(_FadeAmount - _FadeSize, _FadeAmount + _FadeSize, input.uv.y);
             float fade = lerp(0.0f, 1.0f, t);
-            
-            t =  input.uv.y;
-          
+        
+            t = smoothstep(0.1f, 1.0f, input.uv.y);
             //return float4(input.diffuseColor.xyz, 1.0f);
-            float4 baseColor = float4(input.diffuseColor.xyz, 1);
-            float4 col = lerp(baseColor, _TopColor, t);
+            float3 baseColor = _BaseColor.xyz;
+            #if BLEND
+                baseColor = input.baseColor.xyz;
+            #endif
+            float3 col = lerp(baseColor.xyz, _TopColor.xyz * 2.0f, t.xxx);
             
             float4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-            float3 final = albedo.xyz * col.xyz;
+            float3 final = col.xyz * input.diffuseColor * albedo.xyz;
             
             //lighting
             InputData lightingInput = (InputData)0;
@@ -113,6 +119,7 @@ Shader "Custom/SimpleGrassLit" {
             #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile_fog
+            #pragma shader_feature BLEND
             
             #pragma vertex Vertex
             #pragma fragment Fragment

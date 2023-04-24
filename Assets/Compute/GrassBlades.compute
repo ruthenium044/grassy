@@ -15,6 +15,7 @@ StructuredBuffer<int> _SourceTriangles;
 struct DrawVertex {
     float3 positionWS;
     float2 uv;
+    float3 baseColor;
     float3 diffuseColor;
 };
 
@@ -50,6 +51,9 @@ float _BladeForward;
 float _BladeCurve;
 float _OriginDisplacement;
 
+float3 _ShortTint;
+float3 _LongTint;
+
 //Camera LOD
 float3 _CameraLOD;
 float4 _ObjPos;
@@ -65,20 +69,20 @@ float _DisplacementRadius;
 #define GRASS_VERTICES_PER_BLADE (MAX_GRASS_SEGMENTS * 2 + 1)
 
 //https://dvic.devinci.fr/tutorial/Cellular-Automata-with-Shaders
-float customRand (float2 st, float seed) {
+float customRand (float2 st, float seed, float scale) {
+    st *= scale;
     return max(0.001, frac(sin(dot(st.xy + seed.xx, float2(12.9898,78.233) * 0.2)) * 43758.5453123));
 }
 // 2D Noise based on Morgan McGuire @morgan3d
 // https://www.shadertoy.com/view/4dS3Wd
 float noise (float2 st, float seed, float scale) {
-    st *= scale;
     float2 i = floor(st);
     float2 f = frac(st);
     // Four corners in 2D of a tile
-    float a = customRand(i, seed);
-    float b = customRand(i + float2(1.0, 0.0), seed);
-    float c = customRand(i + float2(0.0, 1.0), seed);
-    float d = customRand(i + float2(1.0, 1.0), seed);
+    float a = customRand(i, seed, scale);
+    float b = customRand(i + float2(1.0, 0.0), seed, scale);
+    float c = customRand(i + float2(0.0, 1.0), seed, scale);
+    float d = customRand(i + float2(1.0, 1.0), seed, scale);
     // Cubic Hermine Curve.  Same as SmoothStep()
     float2 u = f*f*(3.0-2.0*f);
     // Mix 4 coorners percentages
@@ -98,8 +102,8 @@ float3x3 AxisAngleRotation(float angle, float3 axis) {
 
 //https://stackoverflow.com/questions/19654251/random-point-inside-triangle-inside-java
 float3 GetTrianglePoint(float3 a, float3 b, float3 c, float seed) {
-    float r1 = sqrt(customRand(a.xz, seed));
-    float r2 = customRand(c.xz, seed);
+    float r1 = sqrt(customRand(a.xz, seed, 1));
+    float r2 = customRand(c.xz, seed, 1);
     float3 pt = (1.0f - r1) * a + (r1 * (1.0f - r2)) * b + (r1 * r2) * c;
     return pt;
 }
@@ -118,10 +122,10 @@ float3 GetTriangleCenter(float3 a, float3 b, float3 c) {
     return (a + b + c) / 3.0f;
 }
 
-float2 GetBladeSize(float3 pos, float seed) {
+float2 GetBladeSize(float3 pos, float seed, float scale) {
     float2 size;
-    size.x = customRand(pos.xz, seed) * _GrassWidthFactor + _GrassWidth;
-    size.y = customRand(pos.xz, seed) * _GrassHeightFactor + _GrassHeight;
+    size.x = customRand(pos.xz, seed, scale * 0.5f) * _GrassWidthFactor + _GrassWidth;
+    size.y = customRand(pos.xz, seed, scale) * _GrassHeightFactor + _GrassHeight;
     return size;
 }
 
@@ -174,7 +178,14 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
     float3 final = GetGrassTransform(positionOS, curve, size, angle, uv, windAxis);
     output.positionWS = TransformToWorldSpace(final);
     output.uv = uv;
-    output.diffuseColor = color;
+    //todo heres the color
+    //output.diffuseColor = windAxis;
+    output.baseColor = color;
+    float t = 1.0f;
+    if (_GrassHeightFactor != 0) {
+        t = (size.y - _GrassHeight) / _GrassHeightFactor;
+    }
+    output.diffuseColor.rgb = lerp(_ShortTint.xyz, _LongTint.xyz, t.xxx);
     return output;
 }
 
@@ -230,7 +241,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         float3 newPos = GetTrianglePoint(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS, seed);
         
         float angle = GetBladeAngle(TransformToWorldSpace(newPos), seed, 10.0f);
-        float2 size = GetBladeSize(newPos, seed);
+        float2 size = GetBladeSize(newPos, seed, 1.0f / numBladesPerVert);
         size.x = GetBladeSizeFaded(TransformToWorldSpace(newPos), size).x;
 
         float3 windAxis = GetWindAxis(TransformToWorldSpace(newPos), normal);

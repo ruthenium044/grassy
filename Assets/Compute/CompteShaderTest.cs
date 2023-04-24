@@ -2,12 +2,11 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-//[ExecuteInEditMode]
+[ExecuteInEditMode]
 public class CompteShaderTest : MonoBehaviour
 {
     [SerializeField] private ScriptableGrassBase grassData;
     [SerializeField] private Transform obj;
-    private Mesh sourceMesh = default;
     
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct SourceVertex {
@@ -34,10 +33,12 @@ public class CompteShaderTest : MonoBehaviour
     private int dispatchSize;
 
     private Bounds localBounds;
+    private Mesh sourceMesh;
+    private Renderer renderer;
 
     private static readonly int SOURCE_VERT_STRIDE = UnsafeUtility.SizeOf<SourceVertex>();
     private const int SOURCE_TRI_STRIDE = sizeof(int);
-    private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2 + 3) * 3);
+    private const int DRAW_STRIDE = sizeof(float) * (3 + (3 + 2 + 3 + 3) * 3);
     private const int ARGS_STRIDE = sizeof(int) * 4;
     
     private static readonly int DrawTriangles = Shader.PropertyToID("_DrawTriangles");
@@ -46,10 +47,12 @@ public class CompteShaderTest : MonoBehaviour
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
     private static readonly int FadeAmount = Shader.PropertyToID("_FadeAmount");
     private static readonly int FadeSize = Shader.PropertyToID("_FadeSize");
+    //private static readonly int BlendFloor = Shader.PropertyToID("_BlendFloor");
 
     private void OnEnable()
     {
-        sourceMesh = GetComponent<MeshFilter>().mesh;
+        sourceMesh = GetComponent<MeshFilter>().sharedMesh;
+        renderer = GetComponent<Renderer>();
         
         if (initialized) { OnDisable(); }
         if (grassData.grassComputeShader == null || sourceMesh == null || grassData.material == null) { return; }
@@ -68,7 +71,7 @@ public class CompteShaderTest : MonoBehaviour
         Vector2[] uvs = sourceMesh.uv;
         int[] tris = sourceMesh.triangles;
         SourceVertex[] vertices = new SourceVertex[positions.Length];
-        Material meshMaterial = GetComponent<Renderer>().material;
+        Material meshMaterial = renderer.sharedMaterial;
 
         Bounds bounds = new Bounds();
 
@@ -105,33 +108,9 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
-
-        //set vertex data
-        instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
-        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1, grassData.bladeSegments));
-        instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, grassData.bladesPerVertex));
-
-        instantiatedComputeShader.SetFloat("_GrassHeight", grassData.grassHeight);
-        instantiatedComputeShader.SetFloat("_GrassWidth", grassData.grassWidth);
-        instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassData.grassHeightFactor);
-        instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassData.grassWidthFactor);
-
-        instantiatedComputeShader.SetFloat("_BladeForward", grassData.bladeForwardAmount);
-        instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, grassData.bladeCurveAmount));
-        instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
-
-        instantiatedComputeShader.SetVector("_CameraLOD",
-            new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
-        instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
-
-        //todo do the rest of settings here too!
-        instantiatedMaterial.SetBuffer(DrawTriangles, drawBuffer);
         
-        instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
-        instantiatedMaterial.SetColor(TopColor, grassData.topColor);
-        instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
-        instantiatedMaterial.SetFloat(FadeAmount, grassData.fadeAmount);
-        instantiatedMaterial.SetFloat(FadeSize, grassData.fadeSize);
+        InitializeComputeShaderData(numTriangles);
+        InitializeMaterial();
 
         // Calculate the number of threads to use. Get the thread size from the kernel
         // Then, divide the number of triangles by that size
@@ -152,12 +131,16 @@ public class CompteShaderTest : MonoBehaviour
             if (Application.isPlaying)
             {
                 Destroy(instantiatedComputeShader);
-               //Destroy(instantiatedMaterial);
+                //Destroy(instantiatedMaterial);
+                //sourceMesh.Clear();
+                //Destroy(renderer);
             }
             else
             {
                 DestroyImmediate(instantiatedComputeShader);
                 //DestroyImmediate(instantiatedMaterial);
+                
+                //DestroyImmediate(renderer);
             }
             
             sourceVertBuffer.Release();
@@ -192,6 +175,39 @@ public class CompteShaderTest : MonoBehaviour
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
 
+    private void InitializeComputeShaderData(int numTriangles)
+    {
+        instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
+        instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1, grassData.bladeSegments));
+        instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, grassData.bladesPerVertex));
+
+        instantiatedComputeShader.SetFloat("_GrassHeight", grassData.grassHeight);
+        instantiatedComputeShader.SetFloat("_GrassWidth", grassData.grassWidth);
+        instantiatedComputeShader.SetFloat("_GrassHeightFactor", grassData.grassHeightFactor);
+        instantiatedComputeShader.SetFloat("_GrassWidthFactor", grassData.grassWidthFactor);
+
+        instantiatedComputeShader.SetFloat("_BladeForward", grassData.bladeForwardAmount);
+        instantiatedComputeShader.SetFloat("_BladeCurve", Mathf.Max(0, grassData.bladeCurveAmount));
+        instantiatedComputeShader.SetFloat("_OriginDisplacement", grassData.bladeOriginDisplacement);
+
+        instantiatedComputeShader.SetVector("_ShortTint", grassData.shortGrassTint);
+        instantiatedComputeShader.SetVector("_LongTint", grassData.longGrassTint);
+        
+        instantiatedComputeShader.SetVector("_CameraLOD",
+            new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
+        instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
+    }
+
+    private void InitializeMaterial()
+    {
+        instantiatedMaterial.SetBuffer(DrawTriangles, drawBuffer);
+        instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
+        instantiatedMaterial.SetColor(TopColor, grassData.topColor);
+        instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
+        instantiatedMaterial.SetFloat(FadeAmount, grassData.fadeAmount);
+        instantiatedMaterial.SetFloat(FadeSize, grassData.fadeSize);
+        //instantiatedMaterial.SetFloat(BlendFloor, grassData.blendWithFloor ? 1.0f : 0.0f);
+    }
 
     // This applies the game object's transform to the local bounds
     // Code by benblo from https://answers.unity.com/questions/361275/cant-convert-bounds-from-world-coordinates-to-loca.html

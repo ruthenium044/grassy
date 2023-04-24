@@ -14,10 +14,15 @@ public class ScriptableGrassBase : ScriptableObject
     
     [Header("Material")]
     [SerializeField] internal Texture mainTexture = default;
+    //[SerializeField] internal bool blendWithFloor = false;
     [SerializeField] internal Color topColor = new Color(1, 1, 1);
-    [SerializeField] internal Color bottomColor = new Color(0, 0, 1);
+    [SerializeField] internal Color bottomColor = new Color(0, 1, 0);
+
     [SerializeField] [Range(0, 1.0f)] internal float fadeAmount = 0.5f;
     [SerializeField] [Range(0, 1.0f)] internal float fadeSize = 0.5f;
+    
+    [SerializeField] internal Color longGrassTint = new Color(1, 1, 1);
+    [SerializeField] internal Color shortGrassTint = new Color(0, 0, 0);
     
     [Header("Blade Size")]
     [SerializeField] internal float grassHeight = 1;
