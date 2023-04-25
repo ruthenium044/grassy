@@ -10,28 +10,28 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2df7b10700ffa154e8b85e1b44dc05d3, type: 3}
-  m_Name: SimpleGrassPlane
+  m_Name: OtherMesh
   m_EditorClassIdentifier: 
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
-  bladeSegments: 6
-  bladesPerVertex: 29
+  bladeSegments: 7
+  bladesPerVertex: 1
   mainTexture: {fileID: 0}
-  blendWithFloor: 0
-  topColor: {r: 1, g: 1, b: 1, a: 1}
-  bottomColor: {r: 0, g: 0, b: 1, a: 1}
+  blendWithFloor: 1
+  topColor: {r: 0.36320752, g: 1, b: 0.6653763, a: 1}
+  bottomColor: {r: 0, g: 0, b: 0.5660378, a: 1}
   fadeAmount: 0.001
   fadeSize: 0.06
-  longGrassTint: {r: 1, g: 0.9819788, b: 0.2971698, a: 1}
-  shortGrassTint: {r: 0.31302577, g: 0.8018868, b: 0.056737266, a: 1}
-  grassHeight: 1
-  grassHeightFactor: 0.5
-  grassWidth: 0.2
-  grassWidthFactor: 0.1
-  bladeForwardAmount: 0.129
-  bladeCurveAmount: 3.82
-  bladeOriginDisplacement: 0.292
-  windSpeed: 0.5
+  longGrassTint: {r: 0.2980392, g: 0.37841272, b: 1, a: 1}
+  shortGrassTint: {r: 0.6509434, g: 0, b: 0.14982595, a: 1}
+  grassHeight: 0.4
+  grassHeightFactor: 0.05
+  grassWidth: 0.08
+  grassWidthFactor: 0.01
+  bladeForwardAmount: 0.095
+  bladeCurveAmount: 4.13
+  bladeOriginDisplacement: 0.338
+  windSpeed: 0
   windScale: 0.5
   windBendStrength: 0.1
   displacementRadius: 0.7

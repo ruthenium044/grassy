@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 [ExecuteInEditMode]
-public class CompteShaderTest : MonoBehaviour
+public class GrassGenerator : MonoBehaviour
 {
     [SerializeField] private ScriptableGrassBase grassData;
     [SerializeField] private Transform obj;
@@ -47,7 +47,6 @@ public class CompteShaderTest : MonoBehaviour
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
     private static readonly int FadeAmount = Shader.PropertyToID("_FadeAmount");
     private static readonly int FadeSize = Shader.PropertyToID("_FadeSize");
-    //private static readonly int BlendFloor = Shader.PropertyToID("_BlendFloor");
 
     private void OnEnable()
     {
@@ -103,7 +102,6 @@ public class CompteShaderTest : MonoBehaviour
         argsBuffer.SetData(new int[] {0, 1, 0, 0});
 
         idKarnel = instantiatedComputeShader.FindKernel("CSMain");
-
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceVertices", sourceVertBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
@@ -131,18 +129,11 @@ public class CompteShaderTest : MonoBehaviour
             if (Application.isPlaying)
             {
                 Destroy(instantiatedComputeShader);
-                //Destroy(instantiatedMaterial);
-                //sourceMesh.Clear();
-                //Destroy(renderer);
             }
             else
             {
                 DestroyImmediate(instantiatedComputeShader);
-                //DestroyImmediate(instantiatedMaterial);
-                
-                //DestroyImmediate(renderer);
             }
-            
             sourceVertBuffer.Release();
             sourceTriBuffer.Release();
             drawBuffer.Release();
@@ -206,7 +197,14 @@ public class CompteShaderTest : MonoBehaviour
         instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
         instantiatedMaterial.SetFloat(FadeAmount, grassData.fadeAmount);
         instantiatedMaterial.SetFloat(FadeSize, grassData.fadeSize);
-        //instantiatedMaterial.SetFloat(BlendFloor, grassData.blendWithFloor ? 1.0f : 0.0f);
+        if (grassData.blendWithFloor)
+        {
+            instantiatedMaterial.EnableKeyword("BLEND");
+        }
+        else
+        {
+            instantiatedMaterial.DisableKeyword("BLEND");
+        }
     }
 
     // This applies the game object's transform to the local bounds

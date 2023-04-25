@@ -182,9 +182,12 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
     //output.diffuseColor = windAxis;
     output.baseColor = color;
     float t = 1.0f;
+
     if (_GrassHeightFactor != 0) {
         t = (size.y - _GrassHeight) / _GrassHeightFactor;
     }
+    t += smoothstep(0, 1, clamp((size.y - _GrassHeight) / _GrassHeightFactor, 0, 1)) * _GrassHeightFactor;
+    
     output.diffuseColor.rgb = lerp(_ShortTint.xyz, _LongTint.xyz, t.xxx);
     return output;
 }
@@ -208,7 +211,7 @@ int GetSegments(float3 positionWS) {
     return min(MAX_GRASS_SEGMENTS, max(0, ceil(dist * _SegmentsPerBlade)));
 }
 
-float3 GetObjectOffset(float3 pos) {
+float3 GetObjectInteractionOffset(float3 pos) {
     float3 dist = distance(_ObjPos.xyz, pos);
     float3 circle = max(0, 1 - saturate(dist / _DisplacementRadius));
     float3 sphereDisplacement = pos - _ObjPos.xyz;
@@ -251,8 +254,9 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * 0.5f;
             
-            newPos += GetObjectOffset(TransformToWorldSpace(newPos));
-            if (v == 0) { u += _OriginDisplacement; }
+            newPos += GetObjectInteractionOffset(TransformToWorldSpace(newPos));
+            u += _OriginDisplacement * step(v, 1e-6);
+            
             float segmentForward = pow(abs(v), _BladeCurve) * _BladeForward;
             
             drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v), windAxis, color);

@@ -14,7 +14,7 @@ public class ScriptableGrassBase : ScriptableObject
     
     [Header("Material")]
     [SerializeField] internal Texture mainTexture = default;
-    //[SerializeField] internal bool blendWithFloor = false;
+    [SerializeField] internal bool blendWithFloor = false;
     [SerializeField] internal Color topColor = new Color(1, 1, 1);
     [SerializeField] internal Color bottomColor = new Color(0, 1, 0);
 

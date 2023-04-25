@@ -5,8 +5,7 @@ Shader "Custom/SimpleGrassLit" {
         //_BaseColor("Base Color", Color) = (1, 1, 1, 1)
         //_FadeAmount("Fade Amount", Range(0,1)) = 0.5
         //_FadeSize("Fade Size", Range(0,1)) = 0.5
-        
-        [Toggle(BLEND)] _BlendFloor("Blend with floor", Float) = 0
+        //[Toggle(BLEND)] _BlendFloor("Blend with floor", Float) = 0
     }
     
     HLSLINCLUDE
