@@ -45,8 +45,6 @@ public class GrassGenerator : MonoBehaviour
     private static readonly int MainTex = Shader.PropertyToID("_MainTex");
     private static readonly int TopColor = Shader.PropertyToID("_TopColor");
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
-    private static readonly int FadeAmount = Shader.PropertyToID("_FadeAmount");
-    private static readonly int FadeSize = Shader.PropertyToID("_FadeSize");
 
     private void OnEnable()
     {
@@ -58,10 +56,8 @@ public class GrassGenerator : MonoBehaviour
         if (sourceMesh.vertexCount == 0) { return; }
         
         initialized = true;
-
         cmdMain = new();
         cmdMain.name = "Prepare Grass";
-        
         instantiatedComputeShader = Instantiate(grassData.grassComputeShader);
         instantiatedMaterial = Instantiate(grassData.material);
 
@@ -71,9 +67,8 @@ public class GrassGenerator : MonoBehaviour
         int[] tris = sourceMesh.triangles;
         SourceVertex[] vertices = new SourceVertex[positions.Length];
         Material meshMaterial = renderer.sharedMaterial;
-
+        
         Bounds bounds = new Bounds();
-
         for (int i = 0; i < vertices.Length; i++)
         {
             vertices[i] = new SourceVertex()
@@ -106,8 +101,9 @@ public class GrassGenerator : MonoBehaviour
         instantiatedComputeShader.SetBuffer(idKarnel, "_SourceTriangles", sourceTriBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_DrawTriangles", drawBuffer);
         instantiatedComputeShader.SetBuffer(idKarnel, "_IndirectArgsBuffer", argsBuffer);
+        instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
         
-        InitializeComputeShaderData(numTriangles);
+        InitializeComputeShaderData();
         InitializeMaterial();
 
         // Calculate the number of threads to use. Get the thread size from the kernel
@@ -166,9 +162,8 @@ public class GrassGenerator : MonoBehaviour
         Graphics.DrawProceduralIndirect(instantiatedMaterial, bounds, MeshTopology.Triangles, argsBuffer);
     }
 
-    private void InitializeComputeShaderData(int numTriangles)
+    private void InitializeComputeShaderData()
     {
-        instantiatedComputeShader.SetInt("_NumSourceTriangles", numTriangles);
         instantiatedComputeShader.SetInt("_SegmentsPerBlade", Mathf.Max(1, grassData.bladeSegments));
         instantiatedComputeShader.SetInt("_BladesPerVertex", Mathf.Max(1, grassData.bladesPerVertex));
 
@@ -183,10 +178,17 @@ public class GrassGenerator : MonoBehaviour
 
         instantiatedComputeShader.SetVector("_ShortTint", grassData.shortGrassTint);
         instantiatedComputeShader.SetVector("_LongTint", grassData.longGrassTint);
-        
-        instantiatedComputeShader.SetVector("_CameraLOD",
-            new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
         instantiatedComputeShader.SetFloat("_DisplacementRadius", grassData.displacementRadius);
+        
+        if (grassData.fadeInEditor || Application.isPlaying == true)
+        {
+            instantiatedComputeShader.SetVector("_CameraLOD",
+            new Vector3(grassData.minLOD, grassData.maxLOD, Mathf.Max(0, grassData.factorLOD)));
+        }
+        else
+        {
+            instantiatedComputeShader.SetVector("_CameraLOD", new Vector3(0, 9999,  1));
+        }
     }
 
     private void InitializeMaterial()
@@ -195,8 +197,7 @@ public class GrassGenerator : MonoBehaviour
         instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
         instantiatedMaterial.SetColor(TopColor, grassData.topColor);
         instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
-        instantiatedMaterial.SetFloat(FadeAmount, grassData.fadeAmount);
-        instantiatedMaterial.SetFloat(FadeSize, grassData.fadeSize);
+
         if (grassData.blendWithFloor)
         {
             instantiatedMaterial.EnableKeyword("BLEND");

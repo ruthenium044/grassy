@@ -17,9 +17,6 @@ public class ScriptableGrassBase : ScriptableObject
     [SerializeField] internal bool blendWithFloor = false;
     [SerializeField] internal Color topColor = new Color(1, 1, 1);
     [SerializeField] internal Color bottomColor = new Color(0, 1, 0);
-
-    [SerializeField] [Range(0, 1.0f)] internal float fadeAmount = 0.5f;
-    [SerializeField] [Range(0, 1.0f)] internal float fadeSize = 0.5f;
     
     [SerializeField] internal Color longGrassTint = new Color(1, 1, 1);
     [SerializeField] internal Color shortGrassTint = new Color(0, 0, 0);
@@ -42,8 +39,9 @@ public class ScriptableGrassBase : ScriptableObject
 
     [Header("Interaction")] 
     [SerializeField] internal float displacementRadius;
-    
-    [Header("Distance LOD")]
+
+    [Header("Distance LOD")] 
+    [SerializeField] internal bool fadeInEditor = false;
     [SerializeField] internal float minLOD = 3;
     [SerializeField] internal float maxLOD = 9;
     [SerializeField] internal float factorLOD = 1;

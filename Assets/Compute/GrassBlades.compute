@@ -154,11 +154,14 @@ float3 GetWindAxis(float3 positionWS, float3 normalWS) {
 }
 
 float3 GetGrassTransform(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
-    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
-    
-    float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0, 1, 0));
+    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, 0.0f);
+    //angle = 0;
+    float3x3 curveMatrix = AxisAngleRotation(curve, float3(1.0f, 0.0f, 0.0f));
+    float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0.0f, 1.0f, 0.0f));
     float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
+    
     float3x3 transform = mul(windRotationMatrix, rotationMatrix);
+    transform = mul(transform, curveMatrix);
     return positionOS + mul(transform, newPos);
 }
 
@@ -166,9 +169,8 @@ float3 GetGrassTransformRotationFirst(float3 positionOS, float curve, float2 siz
     float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
 
     float3 windRotation = atan2(windAxis.y, windAxis.x);
-    float3x3 rotationMatrix = AxisAngleRotation(windRotation, float3(0, 1, 0));
+    float3x3 rotationMatrix = AxisAngleRotation(windRotation, float3(0.0f, 1.0f, 0.0f));
     float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
-    
     float3x3 transform = mul(windRotationMatrix, rotationMatrix);
     return positionOS + mul(transform, newPos);
 }
@@ -232,7 +234,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     
     float3 centerPos = GetTriangleCenter(inputs[0].positionOS, inputs[1].positionOS, inputs[2].positionOS);
     int numBladesPerVert = _BladesPerVertex;
-    int numSegmentsPerBlade = GetSegments(TransformToWorldSpace(centerPos)); //min(MAX_GRASS_SEGMENTS, max(1, _SegmentsPerBlade));
+    int numSegmentsPerBlade = GetSegments(TransformToWorldSpace(centerPos));
     int numTrianglesPerBlade = (numSegmentsPerBlade - 1) * 2 + 1;
     
     DrawVertex drawVertices[GRASS_VERTICES_PER_BLADE];
@@ -253,21 +255,20 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
         for (int i = 0; i < numSegmentsPerBlade; ++i) {
             float v = i / (float)numSegmentsPerBlade;
             float u = v * 0.5f;
-            
-            newPos += GetObjectInteractionOffset(TransformToWorldSpace(newPos));
             u += _OriginDisplacement * step(v, 1e-6);
             
+            newPos += GetObjectInteractionOffset(TransformToWorldSpace(newPos));
             float segmentForward = pow(abs(v), _BladeCurve) * _BladeForward;
             
             drawVertices[i * 2] = GetGrassVertex(newPos, segmentForward, size, angle, float2(u, v), windAxis, color);
             drawVertices[i * 2 + 1] = GetGrassVertex(newPos, segmentForward, size, angle, float2(1 - u, v), windAxis, color);
         }
+        
         drawVertices[numSegmentsPerBlade * 2] = GetGrassVertex(newPos, _BladeForward, size, angle, float2(0.5, 1), windAxis, color);
         for (int k = 0; k < numTrianglesPerBlade; ++k) {
             AppendTriangle(drawVertices, k, normal);
         }
     }
-    
     // counts the number of vertices, storing it in the indirect arguments
     // This tells the renderer how many vertices are in the mesh in DrawProcedural
     InterlockedAdd(_IndirectArgsBuffer[0].numVerticesPerInstance, max(0, numTrianglesPerBlade) * 3 * numBladesPerVert);

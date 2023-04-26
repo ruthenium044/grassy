@@ -1,12 +1,5 @@
 Shader "Custom/SimpleGrassLit" {
-    Properties {
-        //_MainTex ("Texture", 2D) = "white" {}
-        //_TopColor("Top Color", Color) = (1, 1, 1, 1)
-        //_BaseColor("Base Color", Color) = (1, 1, 1, 1)
-        //_FadeAmount("Fade Amount", Range(0,1)) = 0.5
-        //_FadeSize("Fade Size", Range(0,1)) = 0.5
-        //[Toggle(BLEND)] _BlendFloor("Blend with floor", Float) = 0
-    }
+    Properties { }
     
     HLSLINCLUDE
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -43,9 +36,6 @@ Shader "Custom/SimpleGrassLit" {
         half4 _TopColor;
     CBUFFER_END
     
-    float _FadeAmount;
-    float _FadeSize;
-    
     Attributes Vertex(uint vertexID: SV_VertexID) {
         Attributes output = (Attributes)0;
         DrawTriangle tri = _DrawTriangles[vertexID / 3];
@@ -65,11 +55,7 @@ Shader "Custom/SimpleGrassLit" {
         #ifdef SHADERPASS_SHADOWCASTER
             return 0;
         #else
-            float t = smoothstep(_FadeAmount - _FadeSize, _FadeAmount + _FadeSize, input.uv.y);
-            float fade = lerp(0.0f, 1.0f, t);
-        
-            t = smoothstep(0.1f, 1.0f, input.uv.y);
-            //return float4(input.diffuseColor.xyz, 1.0f);
+            float t = smoothstep(0.1f, 1.0f, input.uv.y);
             float3 baseColor = _BaseColor.xyz;
             #if BLEND
                 baseColor = input.baseColor.xyz;
@@ -88,7 +74,7 @@ Shader "Custom/SimpleGrassLit" {
             
             SurfaceData surfaceInput = (SurfaceData)0;
             surfaceInput.albedo = final.xyz;
-            surfaceInput.alpha = clamp(fade, 0, 1);
+            surfaceInput.alpha = 1.0f;
             surfaceInput.smoothness = 0;
             surfaceInput.specular = 1;  
             
@@ -98,14 +84,13 @@ Shader "Custom/SimpleGrassLit" {
     ENDHLSL
     
     SubShader{
-        Tags {"RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "True"}
+        Tags {"RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "IgnoreProjector" = "True"}
 
         Pass {
             Name "ForwardLit"
             Tags{"LightMode" = "UniversalForward"}
             
             Cull Off
-            Blend SrcAlpha OneMinusSrcAlpha
             AlphaToMask On
             
             HLSLPROGRAM

@@ -14,27 +14,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   grassComputeShader: {fileID: 7200000, guid: bbb1ed8cabd0b764d90c8e63cb51d265, type: 3}
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
-  bladeSegments: 6
-  bladesPerVertex: 29
+  bladeSegments: 5
+  bladesPerVertex: 12
   mainTexture: {fileID: 0}
-  blendWithFloor: 0
+  blendWithFloor: 1
   topColor: {r: 1, g: 1, b: 1, a: 1}
-  bottomColor: {r: 0, g: 0, b: 1, a: 1}
-  fadeAmount: 0.001
-  fadeSize: 0.06
+  bottomColor: {r: 0.10893297, g: 0, b: 1, a: 1}
   longGrassTint: {r: 1, g: 0.9819788, b: 0.2971698, a: 1}
   shortGrassTint: {r: 0.31302577, g: 0.8018868, b: 0.056737266, a: 1}
   grassHeight: 1
-  grassHeightFactor: 0.5
+  grassHeightFactor: 0.6
   grassWidth: 0.2
   grassWidthFactor: 0.1
-  bladeForwardAmount: 0.129
-  bladeCurveAmount: 3.82
+  bladeForwardAmount: 0.133
+  bladeCurveAmount: 3.15
   bladeOriginDisplacement: 0.292
   windSpeed: 0.5
   windScale: 0.5
   windBendStrength: 0.1
   displacementRadius: 0.7
+  fadeInEditor: 1
   minLOD: 10
-  maxLOD: 12
-  factorLOD: 5
+  maxLOD: 35
+  factorLOD: 2

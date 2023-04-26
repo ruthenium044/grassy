@@ -20,8 +20,6 @@ MonoBehaviour:
   blendWithFloor: 1
   topColor: {r: 0.78765935, g: 1, b: 0.34509802, a: 1}
   bottomColor: {r: 0.046649624, g: 0.5377358, b: 0, a: 1}
-  fadeAmount: 0
-  fadeSize: 0
   longGrassTint: {r: 1, g: 1, b: 1, a: 1}
   shortGrassTint: {r: 0, g: 0, b: 0, a: 1}
   grassHeight: 1
@@ -34,7 +32,8 @@ MonoBehaviour:
   windSpeed: 1
   windScale: 0.2
   windBendStrength: 0.094
-  displacementRadius: 0.6
+  displacementRadius: 0.8
+  fadeInEditor: 0
   minLOD: 3
   maxLOD: 20
   factorLOD: 1
