@@ -194,10 +194,17 @@ public class GrassGenerator : MonoBehaviour
     private void InitializeMaterial()
     {
         instantiatedMaterial.SetBuffer(DrawTriangles, drawBuffer);
-        instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
         instantiatedMaterial.SetColor(TopColor, grassData.topColor);
         instantiatedMaterial.SetColor(BaseColor, grassData.bottomColor);
-
+        instantiatedMaterial.SetTexture(MainTex, grassData.mainTexture);
+        if (grassData.useTexture)
+        {
+            instantiatedMaterial.EnableKeyword("GRASS_TEXTURE");
+        }
+        else
+        {
+            instantiatedMaterial.DisableKeyword("GRASS_TEXTURE");
+        }
         if (grassData.blendWithFloor)
         {
             instantiatedMaterial.EnableKeyword("BLEND");

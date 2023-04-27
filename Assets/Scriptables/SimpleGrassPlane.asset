@@ -16,12 +16,13 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   bladeSegments: 5
   bladesPerVertex: 12
-  mainTexture: {fileID: 0}
+  useTexture: 0
+  mainTexture: {fileID: 2800000, guid: 2bb958248ea90384b8c341e9e5488c4e, type: 3}
   blendWithFloor: 1
-  topColor: {r: 1, g: 1, b: 1, a: 1}
-  bottomColor: {r: 0.10893297, g: 0, b: 1, a: 1}
-  longGrassTint: {r: 1, g: 0.9819788, b: 0.2971698, a: 1}
-  shortGrassTint: {r: 0.31302577, g: 0.8018868, b: 0.056737266, a: 1}
+  topColor: {r: 0.98105216, g: 1, b: 0.6273585, a: 1}
+  bottomColor: {r: 0.088658206, g: 0.06367925, b: 0.5, a: 1}
+  longGrassTint: {r: 0.87775594, g: 1, b: 0.4009434, a: 1}
+  shortGrassTint: {r: 0.2523873, g: 0.5, b: 0, a: 1}
   grassHeight: 1
   grassHeightFactor: 0.6
   grassWidth: 0.2
@@ -31,9 +32,9 @@ MonoBehaviour:
   bladeOriginDisplacement: 0.292
   windSpeed: 0.5
   windScale: 0.5
-  windBendStrength: 0.1
+  windBendStrength: 0.15
   displacementRadius: 0.7
-  fadeInEditor: 1
+  fadeInEditor: 0
   minLOD: 10
-  maxLOD: 35
+  maxLOD: 30
   factorLOD: 2

@@ -13,6 +13,7 @@ public class ScriptableGrassBase : ScriptableObject
     [SerializeField] [Range(1, 100)] internal int bladesPerVertex = 20;
     
     [Header("Material")]
+    [SerializeField] internal bool useTexture = false;
     [SerializeField] internal Texture mainTexture = default;
     [SerializeField] internal bool blendWithFloor = false;
     [SerializeField] internal Color topColor = new Color(1, 1, 1);
