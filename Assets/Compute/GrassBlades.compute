@@ -148,30 +148,24 @@ float3 GetWindOffset(float3 pos) {
 }
 
 float3 GetWindAxis(float3 positionWS, float3 normalWS) {
-    float2 windUV = positionWS.xz + _Time.x * _WindSpeed;
-    float2 windNoise = noise(windUV, 1, _WindScale) * 2 - 1;
+    float2 windUV = positionWS.xz * _WindScale + _Time.x * _WindSpeed;
+    float2 windNoise = noise(windUV, 1, 1) * 2 - 1;
+    windNoise *= windNoise;
     return cross(normalWS, float3(windNoise.x, 0, windNoise.y));
 }
 
 float3 GetGrassTransform(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
     float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, 0.0f);
-    //angle = 0;
-    float3x3 curveMatrix = AxisAngleRotation(curve, float3(1.0f, 0.0f, 0.0f));
+    float bladeCurve = curve + length(windAxis) * 0.01f * size.y;
+    float3x3 curveMatrix = AxisAngleRotation(bladeCurve, float3(1.0f, 0.0f, 0.0f));
     float3x3 rotationMatrix = AxisAngleRotation(angle, float3(0.0f, 1.0f, 0.0f));
-    float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
+
+    float normalizedHeight = size.y / (_GrassHeight + _GrassHeightFactor);
+    float windBendStrength = pow(normalizedHeight, 4) * _WindBendStrength;
+    float3x3 windRotationMatrix = AxisAngleRotation(windBendStrength, windAxis);
     
     float3x3 transform = mul(windRotationMatrix, rotationMatrix);
     transform = mul(transform, curveMatrix);
-    return positionOS + mul(transform, newPos);
-}
-
-float3 GetGrassTransformRotationFirst(float3 positionOS, float curve, float2 size, float angle, float2 uv, float3 windAxis) {
-    float3 newPos = float3(size.x * (uv.x - 0.5), size.y * uv.y, curve);
-
-    float3 windRotation = atan2(windAxis.y, windAxis.x);
-    float3x3 rotationMatrix = AxisAngleRotation(windRotation, float3(0.0f, 1.0f, 0.0f));
-    float3x3 windRotationMatrix = AxisAngleRotation(uv.y * _WindBendStrength, windAxis);
-    float3x3 transform = mul(windRotationMatrix, rotationMatrix);
     return positionOS + mul(transform, newPos);
 }
 
@@ -180,11 +174,9 @@ DrawVertex GetGrassVertex(float3 positionOS, float curve, float2 size, float ang
     float3 final = GetGrassTransform(positionOS, curve, size, angle, uv, windAxis);
     output.positionWS = TransformToWorldSpace(final);
     output.uv = uv;
-    //todo heres the color
-    //output.diffuseColor = windAxis;
+
     output.baseColor = color;
     float t = 1.0f;
-
     if (_GrassHeightFactor != 0) {
         t = (size.y - _GrassHeight) / _GrassHeightFactor;
     }

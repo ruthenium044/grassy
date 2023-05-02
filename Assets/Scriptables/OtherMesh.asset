@@ -16,6 +16,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: c0f75bc1dc25ec048b928b1893a7371a, type: 2}
   bladeSegments: 3
   bladesPerVertex: 1
+  useTexture: 0
   mainTexture: {fileID: 0}
   blendWithFloor: 1
   topColor: {r: 0.36320752, g: 1, b: 0.6653763, a: 1}
@@ -29,7 +30,7 @@ MonoBehaviour:
   bladeForwardAmount: 0.095
   bladeCurveAmount: 2.23
   bladeOriginDisplacement: 0.338
-  windSpeed: 0
+  windSpeed: 0.1
   windScale: 0.5
   windBendStrength: 0.1
   displacementRadius: 0.7

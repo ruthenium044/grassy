@@ -34,7 +34,7 @@ MonoBehaviour:
   windScale: 0.5
   windBendStrength: 0.2
   displacementRadius: 0.6
-  fadeInEditor: 0
+  fadeInEditor: 1
   minLOD: 3
   maxLOD: 9
   factorLOD: 1
