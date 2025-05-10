@@ -60,11 +60,11 @@ The first thing I encountered was generating the grass blade and shaping it to l
 ![image](https://github.com/user-attachments/assets/6b1b0f42-15b0-46f2-a17c-7cb003dfb811)
 ![image](https://github.com/user-attachments/assets/b14d0d64-e87d-4333-ab5c-0ea69eba0686)
 ![image](https://github.com/user-attachments/assets/ff3200bd-c990-42cf-b442-3f2098a51905)
-![image](https://github.com/user-attachments/assets/ae10bf1e-68df-477f-abdc-0c6d0576d02f)
 
 Another big thing was distributing grass blades over a mesh without it being fully dependent on the vertices amount on the mesh. And fixing the glitched random position on the triangle introduced. My solution of generating random points on a triangle changed the whole compute shader structure and changed other parts of the functionality significantly. It introduced very specific bugs, but I solved them by adapting the system with the new limitations.
 Additionally, later it came to my attention that the grass could be generated on a plane in two ways. One way would be using 2 threads for 2 dimensions and filling in the preset size plane area with the grass and the other one is using 1 thread to read the whole preset mesh and not be limited on the kinds of mesh the grass could be generated on. I chose the latter because I wanted to be able to generate the grass on any imputed mesh. It might have been not the best or most optimal option, but I wanted to have more versatile grass. 
 
+![image](https://github.com/user-attachments/assets/ae10bf1e-68df-477f-abdc-0c6d0576d02f)
 ![image](https://github.com/user-attachments/assets/0572f560-9c9b-48cd-ac53-5945b05bcb28)
 ![image](https://github.com/user-attachments/assets/b43cf97b-5c48-4240-854d-f553c69110c6)
 ![image](https://github.com/user-attachments/assets/8a72ebd1-4e7d-47de-b110-a859569ae12e)
